@@ -14,7 +14,14 @@ spec:
     singular: project
   scope: Namespaced
   versions:
-  - name: v3
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Project name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v3
     schema:
       openAPIV3Schema:
         description: Project is a group of namespaces. Projects are used to create

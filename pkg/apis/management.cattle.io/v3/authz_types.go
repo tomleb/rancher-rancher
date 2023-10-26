@@ -24,6 +24,8 @@ var (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="Project name",type=string,JSONPath=`.spec.displayName`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Project is a group of namespaces.
 // Projects are used to create a multi-tenant environment within a Kubernetes cluster by managing namespace operations,
