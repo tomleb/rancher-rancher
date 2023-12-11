@@ -209,12 +209,15 @@ type AuthConfigConditions struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type SamlToken struct {
+type EncryptedToken struct {
 	types.Namespaced
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Token     string `json:"token" norman:"writeOnly,noupdate"`
+	// Encrypted Rancher token
+	Token string `json:"token" norman:"writeOnly,noupdate"`
+
+	// Expiration time for this token
 	ExpiresAt string `json:"expiresAt"`
 }
 
