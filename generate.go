@@ -1,5 +1,5 @@
-//go:generate go run pkg/codegen/buildconfig/writer.go pkg/codegen/buildconfig/main.go
-//go:generate go run pkg/codegen/generator/cleanup/main.go
-//go:generate go run pkg/codegen/main.go
+//go:generate buildconfig
+//go:generate cleanup
+//go:generate main
 //go:generate scripts/build-crds
 package main
