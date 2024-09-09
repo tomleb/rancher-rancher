@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/remotedialer"
 	"github.com/rancher/wrangler/v3/pkg/data"
 	corecontrollers "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/v3/pkg/generic"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,11 +118,13 @@ func startPeerManager(ctx context.Context, endpoints corecontrollers.EndpointsCo
 		listeners: map[chan<- peermanager.Peers]bool{},
 	}
 
-	endpoints.OnChange(ctx, "peer-manager-controller", pm.syncService)
+	if err := endpoints.(corecontrollers.EndpointsControllerContext).OnChangeContext(ctx, "peer-manager-controller", pm.syncService); err != nil {
+		return nil, err
+	}
 	return pm, nil
 }
 
-func (p *peerManager) syncService(key string, endpoint *v1.Endpoints) (*v1.Endpoints, error) {
+func (p *peerManager) syncService(ctx context.Context, key string, endpoint *v1.Endpoints) (*v1.Endpoints, error) {
 	if endpoint == nil {
 		return nil, nil
 	}

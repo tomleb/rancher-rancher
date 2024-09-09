@@ -240,7 +240,7 @@ func (w *Context) WithAgent(userAgent string) *Context {
 	wContextCopy.CAPI = wContextCopy.capi.WithAgent(userAgent).V1beta1()
 	wContextCopy.RKE = wContextCopy.rke.WithAgent(userAgent).V1()
 	wContextCopy.Mgmt = wContextCopy.mgmt.WithAgent(userAgent).V3()
-	wContextCopy.Apps = wContextCopy.apps.WithAgent(userAgent).V1()
+	wContextCopy.Apps = wContextCopy.apps.Apps().V1()
 	wContextCopy.Admission = wContextCopy.adminReg.WithAgent(userAgent).V1()
 	wContextCopy.Batch = wContextCopy.batch.WithAgent(userAgent).V1()
 	wContextCopy.Fleet = wContextCopy.fleet.WithAgent(userAgent).V1alpha1()
@@ -264,7 +264,7 @@ func enableProtobuf(cfg *rest.Config) *rest.Config {
 
 func NewContext(ctx context.Context, clientConfig clientcmd.ClientConfig, restConfig *rest.Config) (*Context, error) {
 	sharedOpts := controllers.GetOptsFromEnv(controllers.Management)
-	controllerFactory, err := controller.NewSharedControllerFactoryFromConfigWithOptions(enableProtobuf(restConfig), Scheme, sharedOpts)
+	controllerFactory, err := controller.NewSharedControllerFactoryContextFromConfigWithOptions(enableProtobuf(restConfig), Scheme, sharedOpts)
 	if err != nil {
 		return nil, err
 	}
