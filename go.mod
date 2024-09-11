@@ -4,6 +4,10 @@ go 1.22.0
 
 toolchain go1.22.3
 
+replace github.com/rancher/steve => github.com/tomleb/rancher-steve v0.0.0-20240911121934-c176b5a5152a
+
+replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240906163555-e567f1ea2d53
+
 replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.6.27 // for compatibilty with docker 20.10.x
 	github.com/crewjam/saml => github.com/rancher/saml v0.4.14-rancher3
@@ -128,7 +132,7 @@ require (
 	github.com/rancher/aks-operator v1.9.0
 	github.com/rancher/apiserver v0.0.0-20240708202538-39a6f2535146
 	github.com/rancher/channelserver v0.7.0
-	github.com/rancher/dynamiclistener v0.6.0
+	github.com/rancher/dynamiclistener v0.6.1-rc.1
 	github.com/rancher/eks-operator v1.9.0
 	github.com/rancher/fleet/pkg/apis v0.10.0
 	github.com/rancher/gke-operator v1.9.0
@@ -311,7 +315,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-logr/logr v1.4.1 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.10 // indirect
