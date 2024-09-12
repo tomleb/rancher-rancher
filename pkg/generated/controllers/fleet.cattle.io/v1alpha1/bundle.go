@@ -39,6 +39,10 @@ type BundleController interface {
 	generic.ControllerInterface[*v1alpha1.Bundle, *v1alpha1.BundleList]
 }
 
+type BundleControllerContext interface {
+	generic.ControllerInterfaceContext[*v1alpha1.Bundle, *v1alpha1.BundleList]
+}
+
 // BundleClient interface for managing Bundle resources in Kubernetes.
 type BundleClient interface {
 	generic.ClientInterface[*v1alpha1.Bundle, *v1alpha1.BundleList]

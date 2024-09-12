@@ -28,6 +28,10 @@ type SSHAuthController interface {
 	generic.ControllerInterface[*v3.SSHAuth, *v3.SSHAuthList]
 }
 
+type SSHAuthControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.SSHAuth, *v3.SSHAuthList]
+}
+
 // SSHAuthClient interface for managing SSHAuth resources in Kubernetes.
 type SSHAuthClient interface {
 	generic.ClientInterface[*v3.SSHAuth, *v3.SSHAuthList]

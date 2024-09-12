@@ -28,6 +28,10 @@ type CertificateController interface {
 	generic.ControllerInterface[*v3.Certificate, *v3.CertificateList]
 }
 
+type CertificateControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.Certificate, *v3.CertificateList]
+}
+
 // CertificateClient interface for managing Certificate resources in Kubernetes.
 type CertificateClient interface {
 	generic.ClientInterface[*v3.Certificate, *v3.CertificateList]

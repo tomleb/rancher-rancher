@@ -28,6 +28,10 @@ type TokenController interface {
 	generic.NonNamespacedControllerInterface[*v3.Token, *v3.TokenList]
 }
 
+type TokenControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Token, *v3.TokenList]
+}
+
 // TokenClient interface for managing Token resources in Kubernetes.
 type TokenClient interface {
 	generic.NonNamespacedClientInterface[*v3.Token, *v3.TokenList]

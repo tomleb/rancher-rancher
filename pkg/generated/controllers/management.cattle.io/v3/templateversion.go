@@ -39,6 +39,10 @@ type TemplateVersionController interface {
 	generic.NonNamespacedControllerInterface[*v3.TemplateVersion, *v3.TemplateVersionList]
 }
 
+type TemplateVersionControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.TemplateVersion, *v3.TemplateVersionList]
+}
+
 // TemplateVersionClient interface for managing TemplateVersion resources in Kubernetes.
 type TemplateVersionClient interface {
 	generic.NonNamespacedClientInterface[*v3.TemplateVersion, *v3.TemplateVersionList]

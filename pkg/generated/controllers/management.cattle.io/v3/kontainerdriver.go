@@ -39,6 +39,10 @@ type KontainerDriverController interface {
 	generic.NonNamespacedControllerInterface[*v3.KontainerDriver, *v3.KontainerDriverList]
 }
 
+type KontainerDriverControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.KontainerDriver, *v3.KontainerDriverList]
+}
+
 // KontainerDriverClient interface for managing KontainerDriver resources in Kubernetes.
 type KontainerDriverClient interface {
 	generic.NonNamespacedClientInterface[*v3.KontainerDriver, *v3.KontainerDriverList]

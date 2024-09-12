@@ -39,6 +39,10 @@ type ProjectLoggingController interface {
 	generic.ControllerInterface[*v3.ProjectLogging, *v3.ProjectLoggingList]
 }
 
+type ProjectLoggingControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ProjectLogging, *v3.ProjectLoggingList]
+}
+
 // ProjectLoggingClient interface for managing ProjectLogging resources in Kubernetes.
 type ProjectLoggingClient interface {
 	generic.ClientInterface[*v3.ProjectLogging, *v3.ProjectLoggingList]

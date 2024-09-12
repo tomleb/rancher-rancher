@@ -28,6 +28,10 @@ type AuthProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.AuthProvider, *v3.AuthProviderList]
 }
 
+type AuthProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.AuthProvider, *v3.AuthProviderList]
+}
+
 // AuthProviderClient interface for managing AuthProvider resources in Kubernetes.
 type AuthProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.AuthProvider, *v3.AuthProviderList]

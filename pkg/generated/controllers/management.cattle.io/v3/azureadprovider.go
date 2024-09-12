@@ -28,6 +28,10 @@ type AzureADProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.AzureADProvider, *v3.AzureADProviderList]
 }
 
+type AzureADProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.AzureADProvider, *v3.AzureADProviderList]
+}
+
 // AzureADProviderClient interface for managing AzureADProvider resources in Kubernetes.
 type AzureADProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.AzureADProvider, *v3.AzureADProviderList]

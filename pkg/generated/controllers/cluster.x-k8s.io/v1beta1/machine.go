@@ -39,6 +39,10 @@ type MachineController interface {
 	generic.ControllerInterface[*v1beta1.Machine, *v1beta1.MachineList]
 }
 
+type MachineControllerContext interface {
+	generic.ControllerInterfaceContext[*v1beta1.Machine, *v1beta1.MachineList]
+}
+
 // MachineClient interface for managing Machine resources in Kubernetes.
 type MachineClient interface {
 	generic.ClientInterface[*v1beta1.Machine, *v1beta1.MachineList]

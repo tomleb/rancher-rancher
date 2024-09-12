@@ -28,6 +28,10 @@ type PreferenceController interface {
 	generic.ControllerInterface[*v3.Preference, *v3.PreferenceList]
 }
 
+type PreferenceControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.Preference, *v3.PreferenceList]
+}
+
 // PreferenceClient interface for managing Preference resources in Kubernetes.
 type PreferenceClient interface {
 	generic.ClientInterface[*v3.Preference, *v3.PreferenceList]

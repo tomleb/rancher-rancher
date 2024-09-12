@@ -39,6 +39,10 @@ type UserController interface {
 	generic.NonNamespacedControllerInterface[*v3.User, *v3.UserList]
 }
 
+type UserControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.User, *v3.UserList]
+}
+
 // UserClient interface for managing User resources in Kubernetes.
 type UserClient interface {
 	generic.NonNamespacedClientInterface[*v3.User, *v3.UserList]

@@ -39,6 +39,10 @@ type TemplateController interface {
 	generic.NonNamespacedControllerInterface[*v3.Template, *v3.TemplateList]
 }
 
+type TemplateControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Template, *v3.TemplateList]
+}
+
 // TemplateClient interface for managing Template resources in Kubernetes.
 type TemplateClient interface {
 	generic.NonNamespacedClientInterface[*v3.Template, *v3.TemplateList]

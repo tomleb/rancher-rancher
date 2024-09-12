@@ -28,6 +28,10 @@ type MultiClusterAppRevisionController interface {
 	generic.ControllerInterface[*v3.MultiClusterAppRevision, *v3.MultiClusterAppRevisionList]
 }
 
+type MultiClusterAppRevisionControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.MultiClusterAppRevision, *v3.MultiClusterAppRevisionList]
+}
+
 // MultiClusterAppRevisionClient interface for managing MultiClusterAppRevision resources in Kubernetes.
 type MultiClusterAppRevisionClient interface {
 	generic.ClientInterface[*v3.MultiClusterAppRevision, *v3.MultiClusterAppRevisionList]

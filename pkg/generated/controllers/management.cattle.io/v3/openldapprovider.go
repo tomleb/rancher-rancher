@@ -28,6 +28,10 @@ type OpenLdapProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.OpenLdapProvider, *v3.OpenLdapProviderList]
 }
 
+type OpenLdapProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.OpenLdapProvider, *v3.OpenLdapProviderList]
+}
+
 // OpenLdapProviderClient interface for managing OpenLdapProvider resources in Kubernetes.
 type OpenLdapProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.OpenLdapProvider, *v3.OpenLdapProviderList]

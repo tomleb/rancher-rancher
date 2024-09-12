@@ -28,6 +28,10 @@ type SettingController interface {
 	generic.NonNamespacedControllerInterface[*v3.Setting, *v3.SettingList]
 }
 
+type SettingControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Setting, *v3.SettingList]
+}
+
 // SettingClient interface for managing Setting resources in Kubernetes.
 type SettingClient interface {
 	generic.NonNamespacedClientInterface[*v3.Setting, *v3.SettingList]

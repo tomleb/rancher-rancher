@@ -39,6 +39,10 @@ type ClusterController interface {
 	generic.ControllerInterface[*v1alpha1.Cluster, *v1alpha1.ClusterList]
 }
 
+type ClusterControllerContext interface {
+	generic.ControllerInterfaceContext[*v1alpha1.Cluster, *v1alpha1.ClusterList]
+}
+
 // ClusterClient interface for managing Cluster resources in Kubernetes.
 type ClusterClient interface {
 	generic.ClientInterface[*v1alpha1.Cluster, *v1alpha1.ClusterList]

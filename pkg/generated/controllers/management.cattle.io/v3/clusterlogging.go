@@ -39,6 +39,10 @@ type ClusterLoggingController interface {
 	generic.ControllerInterface[*v3.ClusterLogging, *v3.ClusterLoggingList]
 }
 
+type ClusterLoggingControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterLogging, *v3.ClusterLoggingList]
+}
+
 // ClusterLoggingClient interface for managing ClusterLogging resources in Kubernetes.
 type ClusterLoggingClient interface {
 	generic.ClientInterface[*v3.ClusterLogging, *v3.ClusterLoggingList]

@@ -28,6 +28,10 @@ type GroupController interface {
 	generic.NonNamespacedControllerInterface[*v3.Group, *v3.GroupList]
 }
 
+type GroupControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Group, *v3.GroupList]
+}
+
 // GroupClient interface for managing Group resources in Kubernetes.
 type GroupClient interface {
 	generic.NonNamespacedClientInterface[*v3.Group, *v3.GroupList]

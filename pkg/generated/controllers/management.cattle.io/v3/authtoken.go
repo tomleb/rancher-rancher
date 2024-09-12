@@ -28,6 +28,10 @@ type AuthTokenController interface {
 	generic.NonNamespacedControllerInterface[*v3.AuthToken, *v3.AuthTokenList]
 }
 
+type AuthTokenControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.AuthToken, *v3.AuthTokenList]
+}
+
 // AuthTokenClient interface for managing AuthToken resources in Kubernetes.
 type AuthTokenClient interface {
 	generic.NonNamespacedClientInterface[*v3.AuthToken, *v3.AuthTokenList]

@@ -28,6 +28,10 @@ type ProjectCatalogController interface {
 	generic.ControllerInterface[*v3.ProjectCatalog, *v3.ProjectCatalogList]
 }
 
+type ProjectCatalogControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ProjectCatalog, *v3.ProjectCatalogList]
+}
+
 // ProjectCatalogClient interface for managing ProjectCatalog resources in Kubernetes.
 type ProjectCatalogClient interface {
 	generic.ClientInterface[*v3.ProjectCatalog, *v3.ProjectCatalogList]

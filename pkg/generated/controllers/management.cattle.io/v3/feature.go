@@ -39,6 +39,10 @@ type FeatureController interface {
 	generic.NonNamespacedControllerInterface[*v3.Feature, *v3.FeatureList]
 }
 
+type FeatureControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Feature, *v3.FeatureList]
+}
+
 // FeatureClient interface for managing Feature resources in Kubernetes.
 type FeatureClient interface {
 	generic.NonNamespacedClientInterface[*v3.Feature, *v3.FeatureList]

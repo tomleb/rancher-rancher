@@ -39,6 +39,10 @@ type ClusterRepoController interface {
 	generic.NonNamespacedControllerInterface[*v1.ClusterRepo, *v1.ClusterRepoList]
 }
 
+type ClusterRepoControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v1.ClusterRepo, *v1.ClusterRepoList]
+}
+
 // ClusterRepoClient interface for managing ClusterRepo resources in Kubernetes.
 type ClusterRepoClient interface {
 	generic.NonNamespacedClientInterface[*v1.ClusterRepo, *v1.ClusterRepoList]

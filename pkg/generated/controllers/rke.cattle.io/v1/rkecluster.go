@@ -39,6 +39,10 @@ type RKEClusterController interface {
 	generic.ControllerInterface[*v1.RKECluster, *v1.RKEClusterList]
 }
 
+type RKEClusterControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.RKECluster, *v1.RKEClusterList]
+}
+
 // RKEClusterClient interface for managing RKECluster resources in Kubernetes.
 type RKEClusterClient interface {
 	generic.ClientInterface[*v1.RKECluster, *v1.RKEClusterList]

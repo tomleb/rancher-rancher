@@ -39,6 +39,10 @@ type CatalogController interface {
 	generic.NonNamespacedControllerInterface[*v3.Catalog, *v3.CatalogList]
 }
 
+type CatalogControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Catalog, *v3.CatalogList]
+}
+
 // CatalogClient interface for managing Catalog resources in Kubernetes.
 type CatalogClient interface {
 	generic.NonNamespacedClientInterface[*v3.Catalog, *v3.CatalogList]

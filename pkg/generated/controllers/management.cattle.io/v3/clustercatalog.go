@@ -28,6 +28,10 @@ type ClusterCatalogController interface {
 	generic.ControllerInterface[*v3.ClusterCatalog, *v3.ClusterCatalogList]
 }
 
+type ClusterCatalogControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterCatalog, *v3.ClusterCatalogList]
+}
+
 // ClusterCatalogClient interface for managing ClusterCatalog resources in Kubernetes.
 type ClusterCatalogClient interface {
 	generic.ClientInterface[*v3.ClusterCatalog, *v3.ClusterCatalogList]

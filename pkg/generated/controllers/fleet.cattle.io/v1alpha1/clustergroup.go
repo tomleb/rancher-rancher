@@ -39,6 +39,10 @@ type ClusterGroupController interface {
 	generic.ControllerInterface[*v1alpha1.ClusterGroup, *v1alpha1.ClusterGroupList]
 }
 
+type ClusterGroupControllerContext interface {
+	generic.ControllerInterfaceContext[*v1alpha1.ClusterGroup, *v1alpha1.ClusterGroupList]
+}
+
 // ClusterGroupClient interface for managing ClusterGroup resources in Kubernetes.
 type ClusterGroupClient interface {
 	generic.ClientInterface[*v1alpha1.ClusterGroup, *v1alpha1.ClusterGroupList]

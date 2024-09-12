@@ -39,6 +39,10 @@ type NodeController interface {
 	generic.ControllerInterface[*v3.Node, *v3.NodeList]
 }
 
+type NodeControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.Node, *v3.NodeList]
+}
+
 // NodeClient interface for managing Node resources in Kubernetes.
 type NodeClient interface {
 	generic.ClientInterface[*v3.Node, *v3.NodeList]

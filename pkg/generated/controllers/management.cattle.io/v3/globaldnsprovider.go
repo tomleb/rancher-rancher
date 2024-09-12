@@ -28,6 +28,10 @@ type GlobalDnsProviderController interface {
 	generic.ControllerInterface[*v3.GlobalDnsProvider, *v3.GlobalDnsProviderList]
 }
 
+type GlobalDnsProviderControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.GlobalDnsProvider, *v3.GlobalDnsProviderList]
+}
+
 // GlobalDnsProviderClient interface for managing GlobalDnsProvider resources in Kubernetes.
 type GlobalDnsProviderClient interface {
 	generic.ClientInterface[*v3.GlobalDnsProvider, *v3.GlobalDnsProviderList]

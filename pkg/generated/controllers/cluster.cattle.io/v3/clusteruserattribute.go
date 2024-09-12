@@ -28,6 +28,10 @@ type ClusterUserAttributeController interface {
 	generic.ControllerInterface[*v3.ClusterUserAttribute, *v3.ClusterUserAttributeList]
 }
 
+type ClusterUserAttributeControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterUserAttribute, *v3.ClusterUserAttributeList]
+}
+
 // ClusterUserAttributeClient interface for managing ClusterUserAttribute resources in Kubernetes.
 type ClusterUserAttributeClient interface {
 	generic.ClientInterface[*v3.ClusterUserAttribute, *v3.ClusterUserAttributeList]

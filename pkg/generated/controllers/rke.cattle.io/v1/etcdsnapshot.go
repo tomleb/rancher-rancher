@@ -39,6 +39,10 @@ type ETCDSnapshotController interface {
 	generic.ControllerInterface[*v1.ETCDSnapshot, *v1.ETCDSnapshotList]
 }
 
+type ETCDSnapshotControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.ETCDSnapshot, *v1.ETCDSnapshotList]
+}
+
 // ETCDSnapshotClient interface for managing ETCDSnapshot resources in Kubernetes.
 type ETCDSnapshotClient interface {
 	generic.ClientInterface[*v1.ETCDSnapshot, *v1.ETCDSnapshotList]

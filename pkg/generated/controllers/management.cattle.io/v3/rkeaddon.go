@@ -28,6 +28,10 @@ type RkeAddonController interface {
 	generic.ControllerInterface[*v3.RkeAddon, *v3.RkeAddonList]
 }
 
+type RkeAddonControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.RkeAddon, *v3.RkeAddonList]
+}
+
 // RkeAddonClient interface for managing RkeAddon resources in Kubernetes.
 type RkeAddonClient interface {
 	generic.ClientInterface[*v3.RkeAddon, *v3.RkeAddonList]

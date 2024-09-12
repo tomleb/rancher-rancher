@@ -28,6 +28,10 @@ type NamespacedServiceAccountTokenController interface {
 	generic.ControllerInterface[*v3.NamespacedServiceAccountToken, *v3.NamespacedServiceAccountTokenList]
 }
 
+type NamespacedServiceAccountTokenControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NamespacedServiceAccountToken, *v3.NamespacedServiceAccountTokenList]
+}
+
 // NamespacedServiceAccountTokenClient interface for managing NamespacedServiceAccountToken resources in Kubernetes.
 type NamespacedServiceAccountTokenClient interface {
 	generic.ClientInterface[*v3.NamespacedServiceAccountToken, *v3.NamespacedServiceAccountTokenList]

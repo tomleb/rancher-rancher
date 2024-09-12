@@ -28,6 +28,10 @@ type FreeIpaProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.FreeIpaProvider, *v3.FreeIpaProviderList]
 }
 
+type FreeIpaProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.FreeIpaProvider, *v3.FreeIpaProviderList]
+}
+
 // FreeIpaProviderClient interface for managing FreeIpaProvider resources in Kubernetes.
 type FreeIpaProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.FreeIpaProvider, *v3.FreeIpaProviderList]

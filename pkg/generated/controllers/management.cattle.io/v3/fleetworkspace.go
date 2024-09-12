@@ -39,6 +39,10 @@ type FleetWorkspaceController interface {
 	generic.NonNamespacedControllerInterface[*v3.FleetWorkspace, *v3.FleetWorkspaceList]
 }
 
+type FleetWorkspaceControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.FleetWorkspace, *v3.FleetWorkspaceList]
+}
+
 // FleetWorkspaceClient interface for managing FleetWorkspace resources in Kubernetes.
 type FleetWorkspaceClient interface {
 	generic.NonNamespacedClientInterface[*v3.FleetWorkspace, *v3.FleetWorkspaceList]

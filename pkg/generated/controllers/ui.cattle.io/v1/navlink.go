@@ -28,6 +28,10 @@ type NavLinkController interface {
 	generic.ControllerInterface[*v1.NavLink, *v1.NavLinkList]
 }
 
+type NavLinkControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.NavLink, *v1.NavLinkList]
+}
+
 // NavLinkClient interface for managing NavLink resources in Kubernetes.
 type NavLinkClient interface {
 	generic.ClientInterface[*v1.NavLink, *v1.NavLinkList]

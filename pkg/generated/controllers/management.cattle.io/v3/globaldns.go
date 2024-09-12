@@ -39,6 +39,10 @@ type GlobalDnsController interface {
 	generic.ControllerInterface[*v3.GlobalDns, *v3.GlobalDnsList]
 }
 
+type GlobalDnsControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.GlobalDns, *v3.GlobalDnsList]
+}
+
 // GlobalDnsClient interface for managing GlobalDns resources in Kubernetes.
 type GlobalDnsClient interface {
 	generic.ClientInterface[*v3.GlobalDns, *v3.GlobalDnsList]

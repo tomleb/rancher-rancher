@@ -39,6 +39,10 @@ type NodeDriverController interface {
 	generic.NonNamespacedControllerInterface[*v3.NodeDriver, *v3.NodeDriverList]
 }
 
+type NodeDriverControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.NodeDriver, *v3.NodeDriverList]
+}
+
 // NodeDriverClient interface for managing NodeDriver resources in Kubernetes.
 type NodeDriverClient interface {
 	generic.NonNamespacedClientInterface[*v3.NodeDriver, *v3.NodeDriverList]

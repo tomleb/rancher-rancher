@@ -28,6 +28,10 @@ type RkeK8sSystemImageController interface {
 	generic.ControllerInterface[*v3.RkeK8sSystemImage, *v3.RkeK8sSystemImageList]
 }
 
+type RkeK8sSystemImageControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.RkeK8sSystemImage, *v3.RkeK8sSystemImageList]
+}
+
 // RkeK8sSystemImageClient interface for managing RkeK8sSystemImage resources in Kubernetes.
 type RkeK8sSystemImageClient interface {
 	generic.ClientInterface[*v3.RkeK8sSystemImage, *v3.RkeK8sSystemImageList]

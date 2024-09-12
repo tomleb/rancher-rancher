@@ -39,6 +39,10 @@ type OperationController interface {
 	generic.ControllerInterface[*v1.Operation, *v1.OperationList]
 }
 
+type OperationControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.Operation, *v1.OperationList]
+}
+
 // OperationClient interface for managing Operation resources in Kubernetes.
 type OperationClient interface {
 	generic.ClientInterface[*v1.Operation, *v1.OperationList]

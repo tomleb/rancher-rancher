@@ -39,6 +39,10 @@ type CustomMachineController interface {
 	generic.ControllerInterface[*v1.CustomMachine, *v1.CustomMachineList]
 }
 
+type CustomMachineControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.CustomMachine, *v1.CustomMachineList]
+}
+
 // CustomMachineClient interface for managing CustomMachine resources in Kubernetes.
 type CustomMachineClient interface {
 	generic.ClientInterface[*v1.CustomMachine, *v1.CustomMachineList]

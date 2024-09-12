@@ -39,6 +39,10 @@ type UIPluginController interface {
 	generic.ControllerInterface[*v1.UIPlugin, *v1.UIPluginList]
 }
 
+type UIPluginControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.UIPlugin, *v1.UIPluginList]
+}
+
 // UIPluginClient interface for managing UIPlugin resources in Kubernetes.
 type UIPluginClient interface {
 	generic.ClientInterface[*v1.UIPlugin, *v1.UIPluginList]

@@ -39,6 +39,10 @@ type DynamicSchemaController interface {
 	generic.NonNamespacedControllerInterface[*v3.DynamicSchema, *v3.DynamicSchemaList]
 }
 
+type DynamicSchemaControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.DynamicSchema, *v3.DynamicSchemaList]
+}
+
 // DynamicSchemaClient interface for managing DynamicSchema resources in Kubernetes.
 type DynamicSchemaClient interface {
 	generic.NonNamespacedClientInterface[*v3.DynamicSchema, *v3.DynamicSchemaList]

@@ -39,6 +39,10 @@ type NodeTemplateController interface {
 	generic.ControllerInterface[*v3.NodeTemplate, *v3.NodeTemplateList]
 }
 
+type NodeTemplateControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NodeTemplate, *v3.NodeTemplateList]
+}
+
 // NodeTemplateClient interface for managing NodeTemplate resources in Kubernetes.
 type NodeTemplateClient interface {
 	generic.ClientInterface[*v3.NodeTemplate, *v3.NodeTemplateList]

@@ -39,6 +39,10 @@ type AppController interface {
 	generic.ControllerInterface[*v3.App, *v3.AppList]
 }
 
+type AppControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.App, *v3.AppList]
+}
+
 // AppClient interface for managing App resources in Kubernetes.
 type AppClient interface {
 	generic.ClientInterface[*v3.App, *v3.AppList]

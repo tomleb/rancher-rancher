@@ -39,6 +39,10 @@ type AppRevisionController interface {
 	generic.ControllerInterface[*v3.AppRevision, *v3.AppRevisionList]
 }
 
+type AppRevisionControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.AppRevision, *v3.AppRevisionList]
+}
+
 // AppRevisionClient interface for managing AppRevision resources in Kubernetes.
 type AppRevisionClient interface {
 	generic.ClientInterface[*v3.AppRevision, *v3.AppRevisionList]

@@ -28,6 +28,10 @@ type ActiveDirectoryProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.ActiveDirectoryProvider, *v3.ActiveDirectoryProviderList]
 }
 
+type ActiveDirectoryProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.ActiveDirectoryProvider, *v3.ActiveDirectoryProviderList]
+}
+
 // ActiveDirectoryProviderClient interface for managing ActiveDirectoryProvider resources in Kubernetes.
 type ActiveDirectoryProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.ActiveDirectoryProvider, *v3.ActiveDirectoryProviderList]

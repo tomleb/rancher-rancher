@@ -39,6 +39,10 @@ type CatalogTemplateController interface {
 	generic.ControllerInterface[*v3.CatalogTemplate, *v3.CatalogTemplateList]
 }
 
+type CatalogTemplateControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.CatalogTemplate, *v3.CatalogTemplateList]
+}
+
 // CatalogTemplateClient interface for managing CatalogTemplate resources in Kubernetes.
 type CatalogTemplateClient interface {
 	generic.ClientInterface[*v3.CatalogTemplate, *v3.CatalogTemplateList]

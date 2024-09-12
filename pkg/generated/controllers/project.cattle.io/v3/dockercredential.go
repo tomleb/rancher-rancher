@@ -28,6 +28,10 @@ type DockerCredentialController interface {
 	generic.ControllerInterface[*v3.DockerCredential, *v3.DockerCredentialList]
 }
 
+type DockerCredentialControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.DockerCredential, *v3.DockerCredentialList]
+}
+
 // DockerCredentialClient interface for managing DockerCredential resources in Kubernetes.
 type DockerCredentialClient interface {
 	generic.ClientInterface[*v3.DockerCredential, *v3.DockerCredentialList]

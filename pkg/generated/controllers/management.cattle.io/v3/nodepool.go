@@ -39,6 +39,10 @@ type NodePoolController interface {
 	generic.ControllerInterface[*v3.NodePool, *v3.NodePoolList]
 }
 
+type NodePoolControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NodePool, *v3.NodePoolList]
+}
+
 // NodePoolClient interface for managing NodePool resources in Kubernetes.
 type NodePoolClient interface {
 	generic.ClientInterface[*v3.NodePool, *v3.NodePoolList]

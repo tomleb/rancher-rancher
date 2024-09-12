@@ -39,6 +39,10 @@ type ClusterController interface {
 	generic.NonNamespacedControllerInterface[*v3.Cluster, *v3.ClusterList]
 }
 
+type ClusterControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Cluster, *v3.ClusterList]
+}
+
 // ClusterClient interface for managing Cluster resources in Kubernetes.
 type ClusterClient interface {
 	generic.NonNamespacedClientInterface[*v3.Cluster, *v3.ClusterList]

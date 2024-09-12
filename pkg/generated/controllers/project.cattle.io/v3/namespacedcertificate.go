@@ -28,6 +28,10 @@ type NamespacedCertificateController interface {
 	generic.ControllerInterface[*v3.NamespacedCertificate, *v3.NamespacedCertificateList]
 }
 
+type NamespacedCertificateControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NamespacedCertificate, *v3.NamespacedCertificateList]
+}
+
 // NamespacedCertificateClient interface for managing NamespacedCertificate resources in Kubernetes.
 type NamespacedCertificateClient interface {
 	generic.ClientInterface[*v3.NamespacedCertificate, *v3.NamespacedCertificateList]

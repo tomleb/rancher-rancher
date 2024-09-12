@@ -28,6 +28,10 @@ type TemplateContentController interface {
 	generic.NonNamespacedControllerInterface[*v3.TemplateContent, *v3.TemplateContentList]
 }
 
+type TemplateContentControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.TemplateContent, *v3.TemplateContentList]
+}
+
 // TemplateContentClient interface for managing TemplateContent resources in Kubernetes.
 type TemplateContentClient interface {
 	generic.NonNamespacedClientInterface[*v3.TemplateContent, *v3.TemplateContentList]

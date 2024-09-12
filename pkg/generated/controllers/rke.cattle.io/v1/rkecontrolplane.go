@@ -39,6 +39,10 @@ type RKEControlPlaneController interface {
 	generic.ControllerInterface[*v1.RKEControlPlane, *v1.RKEControlPlaneList]
 }
 
+type RKEControlPlaneControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.RKEControlPlane, *v1.RKEControlPlaneList]
+}
+
 // RKEControlPlaneClient interface for managing RKEControlPlane resources in Kubernetes.
 type RKEControlPlaneClient interface {
 	generic.ClientInterface[*v1.RKEControlPlane, *v1.RKEControlPlaneList]

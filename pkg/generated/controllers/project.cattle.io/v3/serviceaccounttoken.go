@@ -28,6 +28,10 @@ type ServiceAccountTokenController interface {
 	generic.ControllerInterface[*v3.ServiceAccountToken, *v3.ServiceAccountTokenList]
 }
 
+type ServiceAccountTokenControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ServiceAccountToken, *v3.ServiceAccountTokenList]
+}
+
 // ServiceAccountTokenClient interface for managing ServiceAccountToken resources in Kubernetes.
 type ServiceAccountTokenClient interface {
 	generic.ClientInterface[*v3.ServiceAccountToken, *v3.ServiceAccountTokenList]

@@ -28,6 +28,10 @@ type GlobalRoleBindingController interface {
 	generic.NonNamespacedControllerInterface[*v3.GlobalRoleBinding, *v3.GlobalRoleBindingList]
 }
 
+type GlobalRoleBindingControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.GlobalRoleBinding, *v3.GlobalRoleBindingList]
+}
+
 // GlobalRoleBindingClient interface for managing GlobalRoleBinding resources in Kubernetes.
 type GlobalRoleBindingClient interface {
 	generic.NonNamespacedClientInterface[*v3.GlobalRoleBinding, *v3.GlobalRoleBindingList]

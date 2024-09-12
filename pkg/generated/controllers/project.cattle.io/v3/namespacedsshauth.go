@@ -28,6 +28,10 @@ type NamespacedSSHAuthController interface {
 	generic.ControllerInterface[*v3.NamespacedSSHAuth, *v3.NamespacedSSHAuthList]
 }
 
+type NamespacedSSHAuthControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NamespacedSSHAuth, *v3.NamespacedSSHAuthList]
+}
+
 // NamespacedSSHAuthClient interface for managing NamespacedSSHAuth resources in Kubernetes.
 type NamespacedSSHAuthClient interface {
 	generic.ClientInterface[*v3.NamespacedSSHAuth, *v3.NamespacedSSHAuthList]

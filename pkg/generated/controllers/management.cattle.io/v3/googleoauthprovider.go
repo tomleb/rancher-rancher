@@ -28,6 +28,10 @@ type GoogleOAuthProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.GoogleOAuthProvider, *v3.GoogleOAuthProviderList]
 }
 
+type GoogleOAuthProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.GoogleOAuthProvider, *v3.GoogleOAuthProviderList]
+}
+
 // GoogleOAuthProviderClient interface for managing GoogleOAuthProvider resources in Kubernetes.
 type GoogleOAuthProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.GoogleOAuthProvider, *v3.GoogleOAuthProviderList]

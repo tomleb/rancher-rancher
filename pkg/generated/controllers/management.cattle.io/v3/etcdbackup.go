@@ -28,6 +28,10 @@ type EtcdBackupController interface {
 	generic.ControllerInterface[*v3.EtcdBackup, *v3.EtcdBackupList]
 }
 
+type EtcdBackupControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.EtcdBackup, *v3.EtcdBackupList]
+}
+
 // EtcdBackupClient interface for managing EtcdBackup resources in Kubernetes.
 type EtcdBackupClient interface {
 	generic.ClientInterface[*v3.EtcdBackup, *v3.EtcdBackupList]

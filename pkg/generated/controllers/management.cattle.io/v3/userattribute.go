@@ -28,6 +28,10 @@ type UserAttributeController interface {
 	generic.NonNamespacedControllerInterface[*v3.UserAttribute, *v3.UserAttributeList]
 }
 
+type UserAttributeControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.UserAttribute, *v3.UserAttributeList]
+}
+
 // UserAttributeClient interface for managing UserAttribute resources in Kubernetes.
 type UserAttributeClient interface {
 	generic.NonNamespacedClientInterface[*v3.UserAttribute, *v3.UserAttributeList]

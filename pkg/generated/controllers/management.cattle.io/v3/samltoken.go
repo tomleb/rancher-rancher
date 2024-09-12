@@ -28,6 +28,10 @@ type SamlTokenController interface {
 	generic.NonNamespacedControllerInterface[*v3.SamlToken, *v3.SamlTokenList]
 }
 
+type SamlTokenControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.SamlToken, *v3.SamlTokenList]
+}
+
 // SamlTokenClient interface for managing SamlToken resources in Kubernetes.
 type SamlTokenClient interface {
 	generic.NonNamespacedClientInterface[*v3.SamlToken, *v3.SamlTokenList]

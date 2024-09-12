@@ -39,6 +39,10 @@ type PlanController interface {
 	generic.ControllerInterface[*v1.Plan, *v1.PlanList]
 }
 
+type PlanControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.Plan, *v1.PlanList]
+}
+
 // PlanClient interface for managing Plan resources in Kubernetes.
 type PlanClient interface {
 	generic.ClientInterface[*v1.Plan, *v1.PlanList]

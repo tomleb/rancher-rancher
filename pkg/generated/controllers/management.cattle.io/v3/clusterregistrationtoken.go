@@ -39,6 +39,10 @@ type ClusterRegistrationTokenController interface {
 	generic.ControllerInterface[*v3.ClusterRegistrationToken, *v3.ClusterRegistrationTokenList]
 }
 
+type ClusterRegistrationTokenControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterRegistrationToken, *v3.ClusterRegistrationTokenList]
+}
+
 // ClusterRegistrationTokenClient interface for managing ClusterRegistrationToken resources in Kubernetes.
 type ClusterRegistrationTokenClient interface {
 	generic.ClientInterface[*v3.ClusterRegistrationToken, *v3.ClusterRegistrationTokenList]

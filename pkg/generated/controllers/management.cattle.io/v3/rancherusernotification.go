@@ -28,6 +28,10 @@ type RancherUserNotificationController interface {
 	generic.NonNamespacedControllerInterface[*v3.RancherUserNotification, *v3.RancherUserNotificationList]
 }
 
+type RancherUserNotificationControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.RancherUserNotification, *v3.RancherUserNotificationList]
+}
+
 // RancherUserNotificationClient interface for managing RancherUserNotification resources in Kubernetes.
 type RancherUserNotificationClient interface {
 	generic.NonNamespacedClientInterface[*v3.RancherUserNotification, *v3.RancherUserNotificationList]

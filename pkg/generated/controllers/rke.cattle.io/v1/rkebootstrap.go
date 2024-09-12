@@ -39,6 +39,10 @@ type RKEBootstrapController interface {
 	generic.ControllerInterface[*v1.RKEBootstrap, *v1.RKEBootstrapList]
 }
 
+type RKEBootstrapControllerContext interface {
+	generic.ControllerInterfaceContext[*v1.RKEBootstrap, *v1.RKEBootstrapList]
+}
+
 // RKEBootstrapClient interface for managing RKEBootstrap resources in Kubernetes.
 type RKEBootstrapClient interface {
 	generic.ClientInterface[*v1.RKEBootstrap, *v1.RKEBootstrapList]

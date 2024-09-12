@@ -28,6 +28,10 @@ type PodSecurityAdmissionConfigurationTemplateController interface {
 	generic.NonNamespacedControllerInterface[*v3.PodSecurityAdmissionConfigurationTemplate, *v3.PodSecurityAdmissionConfigurationTemplateList]
 }
 
+type PodSecurityAdmissionConfigurationTemplateControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.PodSecurityAdmissionConfigurationTemplate, *v3.PodSecurityAdmissionConfigurationTemplateList]
+}
+
 // PodSecurityAdmissionConfigurationTemplateClient interface for managing PodSecurityAdmissionConfigurationTemplate resources in Kubernetes.
 type PodSecurityAdmissionConfigurationTemplateClient interface {
 	generic.NonNamespacedClientInterface[*v3.PodSecurityAdmissionConfigurationTemplate, *v3.PodSecurityAdmissionConfigurationTemplateList]

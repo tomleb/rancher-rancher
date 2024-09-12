@@ -28,6 +28,10 @@ type CloudCredentialController interface {
 	generic.ControllerInterface[*v3.CloudCredential, *v3.CloudCredentialList]
 }
 
+type CloudCredentialControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.CloudCredential, *v3.CloudCredentialList]
+}
+
 // CloudCredentialClient interface for managing CloudCredential resources in Kubernetes.
 type CloudCredentialClient interface {
 	generic.ClientInterface[*v3.CloudCredential, *v3.CloudCredentialList]

@@ -39,6 +39,10 @@ type ClusterTemplateRevisionController interface {
 	generic.ControllerInterface[*v3.ClusterTemplateRevision, *v3.ClusterTemplateRevisionList]
 }
 
+type ClusterTemplateRevisionControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterTemplateRevision, *v3.ClusterTemplateRevisionList]
+}
+
 // ClusterTemplateRevisionClient interface for managing ClusterTemplateRevision resources in Kubernetes.
 type ClusterTemplateRevisionClient interface {
 	generic.ClientInterface[*v3.ClusterTemplateRevision, *v3.ClusterTemplateRevisionList]

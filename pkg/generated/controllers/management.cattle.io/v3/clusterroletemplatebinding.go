@@ -28,6 +28,10 @@ type ClusterRoleTemplateBindingController interface {
 	generic.ControllerInterface[*v3.ClusterRoleTemplateBinding, *v3.ClusterRoleTemplateBindingList]
 }
 
+type ClusterRoleTemplateBindingControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterRoleTemplateBinding, *v3.ClusterRoleTemplateBindingList]
+}
+
 // ClusterRoleTemplateBindingClient interface for managing ClusterRoleTemplateBinding resources in Kubernetes.
 type ClusterRoleTemplateBindingClient interface {
 	generic.ClientInterface[*v3.ClusterRoleTemplateBinding, *v3.ClusterRoleTemplateBindingList]

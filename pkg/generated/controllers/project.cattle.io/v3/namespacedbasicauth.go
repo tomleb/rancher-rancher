@@ -28,6 +28,10 @@ type NamespacedBasicAuthController interface {
 	generic.ControllerInterface[*v3.NamespacedBasicAuth, *v3.NamespacedBasicAuthList]
 }
 
+type NamespacedBasicAuthControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NamespacedBasicAuth, *v3.NamespacedBasicAuthList]
+}
+
 // NamespacedBasicAuthClient interface for managing NamespacedBasicAuth resources in Kubernetes.
 type NamespacedBasicAuthClient interface {
 	generic.ClientInterface[*v3.NamespacedBasicAuth, *v3.NamespacedBasicAuthList]

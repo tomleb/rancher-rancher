@@ -39,6 +39,10 @@ type MachineDeploymentController interface {
 	generic.ControllerInterface[*v1beta1.MachineDeployment, *v1beta1.MachineDeploymentList]
 }
 
+type MachineDeploymentControllerContext interface {
+	generic.ControllerInterfaceContext[*v1beta1.MachineDeployment, *v1beta1.MachineDeploymentList]
+}
+
 // MachineDeploymentClient interface for managing MachineDeployment resources in Kubernetes.
 type MachineDeploymentClient interface {
 	generic.ClientInterface[*v1beta1.MachineDeployment, *v1beta1.MachineDeploymentList]

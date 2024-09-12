@@ -28,6 +28,10 @@ type ProjectRoleTemplateBindingController interface {
 	generic.ControllerInterface[*v3.ProjectRoleTemplateBinding, *v3.ProjectRoleTemplateBindingList]
 }
 
+type ProjectRoleTemplateBindingControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ProjectRoleTemplateBinding, *v3.ProjectRoleTemplateBindingList]
+}
+
 // ProjectRoleTemplateBindingClient interface for managing ProjectRoleTemplateBinding resources in Kubernetes.
 type ProjectRoleTemplateBindingClient interface {
 	generic.ClientInterface[*v3.ProjectRoleTemplateBinding, *v3.ProjectRoleTemplateBindingList]

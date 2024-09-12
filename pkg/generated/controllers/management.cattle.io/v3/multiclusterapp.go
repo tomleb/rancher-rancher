@@ -39,6 +39,10 @@ type MultiClusterAppController interface {
 	generic.ControllerInterface[*v3.MultiClusterApp, *v3.MultiClusterAppList]
 }
 
+type MultiClusterAppControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.MultiClusterApp, *v3.MultiClusterAppList]
+}
+
 // MultiClusterAppClient interface for managing MultiClusterApp resources in Kubernetes.
 type MultiClusterAppClient interface {
 	generic.ClientInterface[*v3.MultiClusterApp, *v3.MultiClusterAppList]

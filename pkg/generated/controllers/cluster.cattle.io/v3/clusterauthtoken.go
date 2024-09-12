@@ -28,6 +28,10 @@ type ClusterAuthTokenController interface {
 	generic.ControllerInterface[*v3.ClusterAuthToken, *v3.ClusterAuthTokenList]
 }
 
+type ClusterAuthTokenControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ClusterAuthToken, *v3.ClusterAuthTokenList]
+}
+
 // ClusterAuthTokenClient interface for managing ClusterAuthToken resources in Kubernetes.
 type ClusterAuthTokenClient interface {
 	generic.ClientInterface[*v3.ClusterAuthToken, *v3.ClusterAuthTokenList]

@@ -39,6 +39,10 @@ type MachineHealthCheckController interface {
 	generic.ControllerInterface[*v1beta1.MachineHealthCheck, *v1beta1.MachineHealthCheckList]
 }
 
+type MachineHealthCheckControllerContext interface {
+	generic.ControllerInterfaceContext[*v1beta1.MachineHealthCheck, *v1beta1.MachineHealthCheckList]
+}
+
 // MachineHealthCheckClient interface for managing MachineHealthCheck resources in Kubernetes.
 type MachineHealthCheckClient interface {
 	generic.ClientInterface[*v1beta1.MachineHealthCheck, *v1beta1.MachineHealthCheckList]

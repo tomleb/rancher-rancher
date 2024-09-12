@@ -39,6 +39,10 @@ type ManagedChartController interface {
 	generic.ControllerInterface[*v3.ManagedChart, *v3.ManagedChartList]
 }
 
+type ManagedChartControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.ManagedChart, *v3.ManagedChartList]
+}
+
 // ManagedChartClient interface for managing ManagedChart resources in Kubernetes.
 type ManagedChartClient interface {
 	generic.ClientInterface[*v3.ManagedChart, *v3.ManagedChartList]

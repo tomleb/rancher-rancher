@@ -28,6 +28,10 @@ type NamespacedDockerCredentialController interface {
 	generic.ControllerInterface[*v3.NamespacedDockerCredential, *v3.NamespacedDockerCredentialList]
 }
 
+type NamespacedDockerCredentialControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.NamespacedDockerCredential, *v3.NamespacedDockerCredentialList]
+}
+
 // NamespacedDockerCredentialClient interface for managing NamespacedDockerCredential resources in Kubernetes.
 type NamespacedDockerCredentialClient interface {
 	generic.ClientInterface[*v3.NamespacedDockerCredential, *v3.NamespacedDockerCredentialList]

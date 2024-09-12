@@ -39,6 +39,10 @@ type ProjectController interface {
 	generic.ControllerInterface[*v3.Project, *v3.ProjectList]
 }
 
+type ProjectControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.Project, *v3.ProjectList]
+}
+
 // ProjectClient interface for managing Project resources in Kubernetes.
 type ProjectClient interface {
 	generic.ClientInterface[*v3.Project, *v3.ProjectList]

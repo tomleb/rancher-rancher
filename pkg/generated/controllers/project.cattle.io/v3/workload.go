@@ -28,6 +28,10 @@ type WorkloadController interface {
 	generic.ControllerInterface[*v3.Workload, *v3.WorkloadList]
 }
 
+type WorkloadControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.Workload, *v3.WorkloadList]
+}
+
 // WorkloadClient interface for managing Workload resources in Kubernetes.
 type WorkloadClient interface {
 	generic.ClientInterface[*v3.Workload, *v3.WorkloadList]

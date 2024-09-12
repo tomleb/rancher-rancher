@@ -28,6 +28,10 @@ type BasicAuthController interface {
 	generic.ControllerInterface[*v3.BasicAuth, *v3.BasicAuthList]
 }
 
+type BasicAuthControllerContext interface {
+	generic.ControllerInterfaceContext[*v3.BasicAuth, *v3.BasicAuthList]
+}
+
 // BasicAuthClient interface for managing BasicAuth resources in Kubernetes.
 type BasicAuthClient interface {
 	generic.ClientInterface[*v3.BasicAuth, *v3.BasicAuthList]

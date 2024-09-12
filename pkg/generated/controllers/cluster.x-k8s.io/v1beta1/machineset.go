@@ -39,6 +39,10 @@ type MachineSetController interface {
 	generic.ControllerInterface[*v1beta1.MachineSet, *v1beta1.MachineSetList]
 }
 
+type MachineSetControllerContext interface {
+	generic.ControllerInterfaceContext[*v1beta1.MachineSet, *v1beta1.MachineSetList]
+}
+
 // MachineSetClient interface for managing MachineSet resources in Kubernetes.
 type MachineSetClient interface {
 	generic.ClientInterface[*v1beta1.MachineSet, *v1beta1.MachineSetList]

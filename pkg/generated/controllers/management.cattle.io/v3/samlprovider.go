@@ -28,6 +28,10 @@ type SamlProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.SamlProvider, *v3.SamlProviderList]
 }
 
+type SamlProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.SamlProvider, *v3.SamlProviderList]
+}
+
 // SamlProviderClient interface for managing SamlProvider resources in Kubernetes.
 type SamlProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.SamlProvider, *v3.SamlProviderList]

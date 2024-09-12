@@ -28,6 +28,10 @@ type OIDCProviderController interface {
 	generic.NonNamespacedControllerInterface[*v3.OIDCProvider, *v3.OIDCProviderList]
 }
 
+type OIDCProviderControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.OIDCProvider, *v3.OIDCProviderList]
+}
+
 // OIDCProviderClient interface for managing OIDCProvider resources in Kubernetes.
 type OIDCProviderClient interface {
 	generic.NonNamespacedClientInterface[*v3.OIDCProvider, *v3.OIDCProviderList]

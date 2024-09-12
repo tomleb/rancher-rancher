@@ -28,6 +28,10 @@ type PrincipalController interface {
 	generic.NonNamespacedControllerInterface[*v3.Principal, *v3.PrincipalList]
 }
 
+type PrincipalControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.Principal, *v3.PrincipalList]
+}
+
 // PrincipalClient interface for managing Principal resources in Kubernetes.
 type PrincipalClient interface {
 	generic.NonNamespacedClientInterface[*v3.Principal, *v3.PrincipalList]

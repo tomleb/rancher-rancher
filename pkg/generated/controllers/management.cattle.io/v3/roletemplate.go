@@ -28,6 +28,10 @@ type RoleTemplateController interface {
 	generic.NonNamespacedControllerInterface[*v3.RoleTemplate, *v3.RoleTemplateList]
 }
 
+type RoleTemplateControllerContext interface {
+	generic.NonNamespacedControllerInterfaceContext[*v3.RoleTemplate, *v3.RoleTemplateList]
+}
+
 // RoleTemplateClient interface for managing RoleTemplate resources in Kubernetes.
 type RoleTemplateClient interface {
 	generic.NonNamespacedClientInterface[*v3.RoleTemplate, *v3.RoleTemplateList]

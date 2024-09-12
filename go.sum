@@ -1607,6 +1607,10 @@ github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b h1:0b+gA19NJ7AYlm+zu+AQPbZv1WMZPgT5kRVebKC2JAg=
+github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b/go.mod h1:zQV9WOXr+XeVtbMBGgKrDvmyPQVYuLhgnU16KlDKDkQ=
+github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe h1:ziN+QNFaOnbrKyEwFlwWg/fhlBzYnt2Vq/y4H/5HRko=
+github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe/go.mod h1:KC/8pTWo/MKU0ArFHZkb8/5D6hdXUTlgci/Sb3OS+W8=
 github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 h1:nrZ3ySNYwJbSpD6ce9duiP+QkD3JuLCcWkdaehUS/3Y=
 github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80/go.mod h1:iFyPdL66DjUD96XmzVL3ZntbzcflLnznH0fr99w5VqE=
 github.com/urfave/cli v1.22.15 h1:nuqt+pdC/KqswQKhETJjo7pvn/k4xMUxgW6liI7XpnM=
