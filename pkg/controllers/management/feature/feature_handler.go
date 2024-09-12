@@ -30,10 +30,10 @@ func Register(ctx context.Context, wContext *wrangler.Context) {
 		tokenEnqueue:         wContext.Mgmt.Token().EnqueueAfter,
 		nodeDriverController: wContext.Mgmt.NodeDriver(),
 	}
-	wContext.Mgmt.Feature().OnChange(ctx, "feature-handler", h.sync)
+	wContext.Mgmt.Feature().(managementv3.FeatureControllerContext).OnChangeContext(ctx, "feature-handler", h.sync)
 }
 
-func (h *handler) sync(_ string, obj *v3.Feature) (*v3.Feature, error) {
+func (h *handler) sync(_ context.Context, _ string, obj *v3.Feature) (*v3.Feature, error) {
 	if obj == nil || obj.DeletionTimestamp != nil {
 		return nil, nil
 	}

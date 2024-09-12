@@ -33,7 +33,7 @@ func newAuthSettingController(ctx context.Context, mgmt *config.ManagementContex
 }
 
 // sync is called periodically and on real updates
-func (c *SettingController) sync(key string, obj *v3.Setting) (runtime.Object, error) {
+func (c *SettingController) sync(_ context.Context, key string, obj *v3.Setting) (runtime.Object, error) {
 	if obj == nil || obj.DeletionTimestamp != nil {
 		return nil, nil
 	}
