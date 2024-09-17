@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewLimitRange(namespace, name string, obj v1.LimitRange) *v1.LimitRange {
 
 type LimitRangeHandlerFunc func(key string, obj *v1.LimitRange) (runtime.Object, error)
 
+type LimitRangeHandlerContextFunc func(ctx context.Context, key string, obj *v1.LimitRange) (runtime.Object, error)
+
 type LimitRangeChangeHandlerFunc func(obj *v1.LimitRange) (runtime.Object, error)
 
 type LimitRangeLister interface {
@@ -72,6 +75,11 @@ type LimitRangeController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler LimitRangeHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type LimitRangeControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler LimitRangeHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler LimitRangeHandlerContextFunc) error
 }
 
 type LimitRangeInterface interface {
@@ -95,6 +103,11 @@ type LimitRangeInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync LimitRangeHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle LimitRangeLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle LimitRangeLifecycle)
+}
+
+type LimitRangeInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler LimitRangeHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync LimitRangeHandlerContextFunc) error
 }
 
 type limitRangeLister struct {
@@ -160,6 +173,23 @@ func (c *limitRangeController) AddHandler(ctx context.Context, name string, hand
 	})
 }
 
+func (c *limitRangeController) AddHandlerContext(ctx context.Context, name string, handler LimitRangeHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.LimitRange); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *limitRangeController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler LimitRangeHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *limitRangeController) AddClusterScopedHandler(ctx context.Context, name
 			return nil, nil
 		}
 	})
+}
+
+func (c *limitRangeController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler LimitRangeHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.LimitRange); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *limitRangeController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler LimitRangeHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *limitRangeClient) AddHandler(ctx context.Context, name string, sync Lim
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *limitRangeClient) AddHandlerContext(ctx context.Context, name string, sync LimitRangeHandlerContextFunc) error {
+	return s.Controller().(LimitRangeControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *limitRangeClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync LimitRangeHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *limitRangeClient) AddFeatureLifecycle(ctx context.Context, enabled func
 
 func (s *limitRangeClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync LimitRangeHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *limitRangeClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync LimitRangeHandlerContextFunc) error {
+	return s.Controller().(LimitRangeControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *limitRangeClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync LimitRangeHandlerFunc) {

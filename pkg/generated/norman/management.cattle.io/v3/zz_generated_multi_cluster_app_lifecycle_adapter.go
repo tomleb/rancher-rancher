@@ -1,11 +1,29 @@
 package v3
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type multiClusterAppLifecycleConverter struct {
+	lifecycle MultiClusterAppLifecycle
+}
+
+func (w *multiClusterAppLifecycleConverter) CreateContext(_ context.Context, obj *v3.MultiClusterApp) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *multiClusterAppLifecycleConverter) RemoveContext(_ context.Context, obj *v3.MultiClusterApp) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *multiClusterAppLifecycleConverter) UpdatedContext(_ context.Context, obj *v3.MultiClusterApp) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type MultiClusterAppLifecycle interface {
 	Create(obj *v3.MultiClusterApp) (runtime.Object, error)
@@ -13,8 +31,14 @@ type MultiClusterAppLifecycle interface {
 	Updated(obj *v3.MultiClusterApp) (runtime.Object, error)
 }
 
+type MultiClusterAppLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v3.MultiClusterApp) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v3.MultiClusterApp) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v3.MultiClusterApp) (runtime.Object, error)
+}
+
 type multiClusterAppLifecycleAdapter struct {
-	lifecycle MultiClusterAppLifecycle
+	lifecycle MultiClusterAppLifecycleContext
 }
 
 func (w *multiClusterAppLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *multiClusterAppLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *multiClusterAppLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v3.MultiClusterApp))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *multiClusterAppLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v3.MultiClusterApp))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *multiClusterAppLifecycleAdapter) Create(obj runtime.Object) (runtime.Ob
 }
 
 func (w *multiClusterAppLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v3.MultiClusterApp))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *multiClusterAppLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v3.MultiClusterApp))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *multiClusterAppLifecycleAdapter) Finalize(obj runtime.Object) (runtime.
 }
 
 func (w *multiClusterAppLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v3.MultiClusterApp))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *multiClusterAppLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v3.MultiClusterApp))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewMultiClusterAppLifecycleAdapter(name string, clusterScoped bool, client 
 	if clusterScoped {
 		resource.PutClusterScoped(MultiClusterAppGroupVersionResource)
 	}
-	adapter := &multiClusterAppLifecycleAdapter{lifecycle: l}
+	adapter := &multiClusterAppLifecycleAdapter{lifecycle: &multiClusterAppLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v3.MultiClusterApp) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewMultiClusterAppLifecycleAdapterContext(name string, clusterScoped bool, client MultiClusterAppInterface, l MultiClusterAppLifecycleContext) MultiClusterAppHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(MultiClusterAppGroupVersionResource)
+	}
+	adapter := &multiClusterAppLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v3.MultiClusterApp) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

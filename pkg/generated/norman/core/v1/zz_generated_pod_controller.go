@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewPod(namespace, name string, obj v1.Pod) *v1.Pod {
 
 type PodHandlerFunc func(key string, obj *v1.Pod) (runtime.Object, error)
 
+type PodHandlerContextFunc func(ctx context.Context, key string, obj *v1.Pod) (runtime.Object, error)
+
 type PodChangeHandlerFunc func(obj *v1.Pod) (runtime.Object, error)
 
 type PodLister interface {
@@ -72,6 +75,11 @@ type PodController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler PodHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type PodControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PodHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler PodHandlerContextFunc) error
 }
 
 type PodInterface interface {
@@ -95,6 +103,11 @@ type PodInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PodHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle PodLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle PodLifecycle)
+}
+
+type PodInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PodHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PodHandlerContextFunc) error
 }
 
 type podLister struct {
@@ -160,6 +173,23 @@ func (c *podController) AddHandler(ctx context.Context, name string, handler Pod
 	})
 }
 
+func (c *podController) AddHandlerContext(ctx context.Context, name string, handler PodHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Pod); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *podController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler PodHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *podController) AddClusterScopedHandler(ctx context.Context, name, clust
 			return nil, nil
 		}
 	})
+}
+
+func (c *podController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler PodHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Pod); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *podController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler PodHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *podClient) AddHandler(ctx context.Context, name string, sync PodHandler
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *podClient) AddHandlerContext(ctx context.Context, name string, sync PodHandlerContextFunc) error {
+	return s.Controller().(PodControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *podClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync PodHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *podClient) AddFeatureLifecycle(ctx context.Context, enabled func() bool
 
 func (s *podClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync PodHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *podClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PodHandlerContextFunc) error {
+	return s.Controller().(PodControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *podClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PodHandlerFunc) {

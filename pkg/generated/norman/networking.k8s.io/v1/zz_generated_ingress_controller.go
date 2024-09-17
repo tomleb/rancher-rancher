@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewIngress(namespace, name string, obj v1.Ingress) *v1.Ingress {
 
 type IngressHandlerFunc func(key string, obj *v1.Ingress) (runtime.Object, error)
 
+type IngressHandlerContextFunc func(ctx context.Context, key string, obj *v1.Ingress) (runtime.Object, error)
+
 type IngressChangeHandlerFunc func(obj *v1.Ingress) (runtime.Object, error)
 
 type IngressLister interface {
@@ -72,6 +75,11 @@ type IngressController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler IngressHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type IngressControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler IngressHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler IngressHandlerContextFunc) error
 }
 
 type IngressInterface interface {
@@ -95,6 +103,11 @@ type IngressInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync IngressHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle IngressLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle IngressLifecycle)
+}
+
+type IngressInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler IngressHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync IngressHandlerContextFunc) error
 }
 
 type ingressLister struct {
@@ -160,6 +173,23 @@ func (c *ingressController) AddHandler(ctx context.Context, name string, handler
 	})
 }
 
+func (c *ingressController) AddHandlerContext(ctx context.Context, name string, handler IngressHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Ingress); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *ingressController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler IngressHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *ingressController) AddClusterScopedHandler(ctx context.Context, name, c
 			return nil, nil
 		}
 	})
+}
+
+func (c *ingressController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler IngressHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Ingress); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *ingressController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler IngressHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *ingressClient) AddHandler(ctx context.Context, name string, sync Ingres
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *ingressClient) AddHandlerContext(ctx context.Context, name string, sync IngressHandlerContextFunc) error {
+	return s.Controller().(IngressControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *ingressClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync IngressHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *ingressClient) AddFeatureLifecycle(ctx context.Context, enabled func() 
 
 func (s *ingressClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync IngressHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *ingressClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync IngressHandlerContextFunc) error {
+	return s.Controller().(IngressControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *ingressClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync IngressHandlerFunc) {

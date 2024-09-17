@@ -1,11 +1,29 @@
 package v2
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type horizontalPodAutoscalerLifecycleConverter struct {
+	lifecycle HorizontalPodAutoscalerLifecycle
+}
+
+func (w *horizontalPodAutoscalerLifecycleConverter) CreateContext(_ context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *horizontalPodAutoscalerLifecycleConverter) RemoveContext(_ context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *horizontalPodAutoscalerLifecycleConverter) UpdatedContext(_ context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type HorizontalPodAutoscalerLifecycle interface {
 	Create(obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
@@ -13,8 +31,14 @@ type HorizontalPodAutoscalerLifecycle interface {
 	Updated(obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
 }
 
+type HorizontalPodAutoscalerLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
+}
+
 type horizontalPodAutoscalerLifecycleAdapter struct {
-	lifecycle HorizontalPodAutoscalerLifecycle
+	lifecycle HorizontalPodAutoscalerLifecycleContext
 }
 
 func (w *horizontalPodAutoscalerLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *horizontalPodAutoscalerLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *horizontalPodAutoscalerLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v2.HorizontalPodAutoscaler))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *horizontalPodAutoscalerLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v2.HorizontalPodAutoscaler))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *horizontalPodAutoscalerLifecycleAdapter) Create(obj runtime.Object) (ru
 }
 
 func (w *horizontalPodAutoscalerLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v2.HorizontalPodAutoscaler))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *horizontalPodAutoscalerLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v2.HorizontalPodAutoscaler))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *horizontalPodAutoscalerLifecycleAdapter) Finalize(obj runtime.Object) (
 }
 
 func (w *horizontalPodAutoscalerLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v2.HorizontalPodAutoscaler))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *horizontalPodAutoscalerLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v2.HorizontalPodAutoscaler))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewHorizontalPodAutoscalerLifecycleAdapter(name string, clusterScoped bool,
 	if clusterScoped {
 		resource.PutClusterScoped(HorizontalPodAutoscalerGroupVersionResource)
 	}
-	adapter := &horizontalPodAutoscalerLifecycleAdapter{lifecycle: l}
+	adapter := &horizontalPodAutoscalerLifecycleAdapter{lifecycle: &horizontalPodAutoscalerLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewHorizontalPodAutoscalerLifecycleAdapterContext(name string, clusterScoped bool, client HorizontalPodAutoscalerInterface, l HorizontalPodAutoscalerLifecycleContext) HorizontalPodAutoscalerHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(HorizontalPodAutoscalerGroupVersionResource)
+	}
+	adapter := &horizontalPodAutoscalerLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

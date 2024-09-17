@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewPreference(namespace, name string, obj v3.Preference) *v3.Preference {
 
 type PreferenceHandlerFunc func(key string, obj *v3.Preference) (runtime.Object, error)
 
+type PreferenceHandlerContextFunc func(ctx context.Context, key string, obj *v3.Preference) (runtime.Object, error)
+
 type PreferenceChangeHandlerFunc func(obj *v3.Preference) (runtime.Object, error)
 
 type PreferenceLister interface {
@@ -72,6 +75,11 @@ type PreferenceController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler PreferenceHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type PreferenceControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PreferenceHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler PreferenceHandlerContextFunc) error
 }
 
 type PreferenceInterface interface {
@@ -95,6 +103,11 @@ type PreferenceInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PreferenceHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle PreferenceLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle PreferenceLifecycle)
+}
+
+type PreferenceInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PreferenceHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PreferenceHandlerContextFunc) error
 }
 
 type preferenceLister struct {
@@ -160,6 +173,23 @@ func (c *preferenceController) AddHandler(ctx context.Context, name string, hand
 	})
 }
 
+func (c *preferenceController) AddHandlerContext(ctx context.Context, name string, handler PreferenceHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Preference); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *preferenceController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler PreferenceHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *preferenceController) AddClusterScopedHandler(ctx context.Context, name
 			return nil, nil
 		}
 	})
+}
+
+func (c *preferenceController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler PreferenceHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Preference); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *preferenceController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler PreferenceHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *preferenceClient) AddHandler(ctx context.Context, name string, sync Pre
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *preferenceClient) AddHandlerContext(ctx context.Context, name string, sync PreferenceHandlerContextFunc) error {
+	return s.Controller().(PreferenceControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *preferenceClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync PreferenceHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *preferenceClient) AddFeatureLifecycle(ctx context.Context, enabled func
 
 func (s *preferenceClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync PreferenceHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *preferenceClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PreferenceHandlerContextFunc) error {
+	return s.Controller().(PreferenceControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *preferenceClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PreferenceHandlerFunc) {

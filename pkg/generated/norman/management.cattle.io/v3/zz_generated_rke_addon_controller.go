@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewRkeAddon(namespace, name string, obj v3.RkeAddon) *v3.RkeAddon {
 
 type RkeAddonHandlerFunc func(key string, obj *v3.RkeAddon) (runtime.Object, error)
 
+type RkeAddonHandlerContextFunc func(ctx context.Context, key string, obj *v3.RkeAddon) (runtime.Object, error)
+
 type RkeAddonChangeHandlerFunc func(obj *v3.RkeAddon) (runtime.Object, error)
 
 type RkeAddonLister interface {
@@ -72,6 +75,11 @@ type RkeAddonController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler RkeAddonHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type RkeAddonControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeAddonHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler RkeAddonHandlerContextFunc) error
 }
 
 type RkeAddonInterface interface {
@@ -95,6 +103,11 @@ type RkeAddonInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeAddonHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle RkeAddonLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle RkeAddonLifecycle)
+}
+
+type RkeAddonInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeAddonHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeAddonHandlerContextFunc) error
 }
 
 type rkeAddonLister struct {
@@ -160,6 +173,23 @@ func (c *rkeAddonController) AddHandler(ctx context.Context, name string, handle
 	})
 }
 
+func (c *rkeAddonController) AddHandlerContext(ctx context.Context, name string, handler RkeAddonHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeAddon); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *rkeAddonController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler RkeAddonHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *rkeAddonController) AddClusterScopedHandler(ctx context.Context, name, 
 			return nil, nil
 		}
 	})
+}
+
+func (c *rkeAddonController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler RkeAddonHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeAddon); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *rkeAddonController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler RkeAddonHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *rkeAddonClient) AddHandler(ctx context.Context, name string, sync RkeAd
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *rkeAddonClient) AddHandlerContext(ctx context.Context, name string, sync RkeAddonHandlerContextFunc) error {
+	return s.Controller().(RkeAddonControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *rkeAddonClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync RkeAddonHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *rkeAddonClient) AddFeatureLifecycle(ctx context.Context, enabled func()
 
 func (s *rkeAddonClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync RkeAddonHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *rkeAddonClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeAddonHandlerContextFunc) error {
+	return s.Controller().(RkeAddonControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *rkeAddonClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeAddonHandlerFunc) {

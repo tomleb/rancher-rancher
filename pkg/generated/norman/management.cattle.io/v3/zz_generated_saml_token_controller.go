@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewSamlToken(namespace, name string, obj v3.SamlToken) *v3.SamlToken {
 
 type SamlTokenHandlerFunc func(key string, obj *v3.SamlToken) (runtime.Object, error)
 
+type SamlTokenHandlerContextFunc func(ctx context.Context, key string, obj *v3.SamlToken) (runtime.Object, error)
+
 type SamlTokenChangeHandlerFunc func(obj *v3.SamlToken) (runtime.Object, error)
 
 type SamlTokenLister interface {
@@ -72,6 +75,11 @@ type SamlTokenController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler SamlTokenHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type SamlTokenControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SamlTokenHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler SamlTokenHandlerContextFunc) error
 }
 
 type SamlTokenInterface interface {
@@ -95,6 +103,11 @@ type SamlTokenInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SamlTokenHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle SamlTokenLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle SamlTokenLifecycle)
+}
+
+type SamlTokenInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SamlTokenHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SamlTokenHandlerContextFunc) error
 }
 
 type samlTokenLister struct {
@@ -160,6 +173,23 @@ func (c *samlTokenController) AddHandler(ctx context.Context, name string, handl
 	})
 }
 
+func (c *samlTokenController) AddHandlerContext(ctx context.Context, name string, handler SamlTokenHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.SamlToken); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *samlTokenController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler SamlTokenHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *samlTokenController) AddClusterScopedHandler(ctx context.Context, name,
 			return nil, nil
 		}
 	})
+}
+
+func (c *samlTokenController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler SamlTokenHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.SamlToken); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *samlTokenController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler SamlTokenHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *samlTokenClient) AddHandler(ctx context.Context, name string, sync Saml
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *samlTokenClient) AddHandlerContext(ctx context.Context, name string, sync SamlTokenHandlerContextFunc) error {
+	return s.Controller().(SamlTokenControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *samlTokenClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync SamlTokenHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *samlTokenClient) AddFeatureLifecycle(ctx context.Context, enabled func(
 
 func (s *samlTokenClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync SamlTokenHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *samlTokenClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SamlTokenHandlerContextFunc) error {
+	return s.Controller().(SamlTokenControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *samlTokenClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SamlTokenHandlerFunc) {

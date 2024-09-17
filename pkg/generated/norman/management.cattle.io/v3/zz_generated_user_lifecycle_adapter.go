@@ -1,11 +1,29 @@
 package v3
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type userLifecycleConverter struct {
+	lifecycle UserLifecycle
+}
+
+func (w *userLifecycleConverter) CreateContext(_ context.Context, obj *v3.User) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *userLifecycleConverter) RemoveContext(_ context.Context, obj *v3.User) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *userLifecycleConverter) UpdatedContext(_ context.Context, obj *v3.User) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type UserLifecycle interface {
 	Create(obj *v3.User) (runtime.Object, error)
@@ -13,8 +31,14 @@ type UserLifecycle interface {
 	Updated(obj *v3.User) (runtime.Object, error)
 }
 
+type UserLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v3.User) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v3.User) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v3.User) (runtime.Object, error)
+}
+
 type userLifecycleAdapter struct {
-	lifecycle UserLifecycle
+	lifecycle UserLifecycleContext
 }
 
 func (w *userLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *userLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *userLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v3.User))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *userLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v3.User))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *userLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error
 }
 
 func (w *userLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v3.User))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *userLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v3.User))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *userLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, err
 }
 
 func (w *userLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v3.User))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *userLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v3.User))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewUserLifecycleAdapter(name string, clusterScoped bool, client UserInterfa
 	if clusterScoped {
 		resource.PutClusterScoped(UserGroupVersionResource)
 	}
-	adapter := &userLifecycleAdapter{lifecycle: l}
+	adapter := &userLifecycleAdapter{lifecycle: &userLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v3.User) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewUserLifecycleAdapterContext(name string, clusterScoped bool, client UserInterface, l UserLifecycleContext) UserHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(UserGroupVersionResource)
+	}
+	adapter := &userLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v3.User) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

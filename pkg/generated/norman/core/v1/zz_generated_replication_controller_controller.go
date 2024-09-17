@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewReplicationController(namespace, name string, obj v1.ReplicationControll
 
 type ReplicationControllerHandlerFunc func(key string, obj *v1.ReplicationController) (runtime.Object, error)
 
+type ReplicationControllerHandlerContextFunc func(ctx context.Context, key string, obj *v1.ReplicationController) (runtime.Object, error)
+
 type ReplicationControllerChangeHandlerFunc func(obj *v1.ReplicationController) (runtime.Object, error)
 
 type ReplicationControllerLister interface {
@@ -72,6 +75,11 @@ type ReplicationControllerController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ReplicationControllerHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ReplicationControllerControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ReplicationControllerHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ReplicationControllerHandlerContextFunc) error
 }
 
 type ReplicationControllerInterface interface {
@@ -95,6 +103,11 @@ type ReplicationControllerInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ReplicationControllerHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ReplicationControllerLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ReplicationControllerLifecycle)
+}
+
+type ReplicationControllerInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ReplicationControllerHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ReplicationControllerHandlerContextFunc) error
 }
 
 type replicationControllerLister struct {
@@ -160,6 +173,23 @@ func (c *replicationControllerController) AddHandler(ctx context.Context, name s
 	})
 }
 
+func (c *replicationControllerController) AddHandlerContext(ctx context.Context, name string, handler ReplicationControllerHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ReplicationController); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *replicationControllerController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ReplicationControllerHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *replicationControllerController) AddClusterScopedHandler(ctx context.Co
 			return nil, nil
 		}
 	})
+}
+
+func (c *replicationControllerController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ReplicationControllerHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ReplicationController); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *replicationControllerController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ReplicationControllerHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *replicationControllerClient) AddHandler(ctx context.Context, name strin
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *replicationControllerClient) AddHandlerContext(ctx context.Context, name string, sync ReplicationControllerHandlerContextFunc) error {
+	return s.Controller().(ReplicationControllerControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *replicationControllerClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ReplicationControllerHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *replicationControllerClient) AddFeatureLifecycle(ctx context.Context, e
 
 func (s *replicationControllerClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ReplicationControllerHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *replicationControllerClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ReplicationControllerHandlerContextFunc) error {
+	return s.Controller().(ReplicationControllerControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *replicationControllerClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ReplicationControllerHandlerFunc) {

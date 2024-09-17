@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewToken(namespace, name string, obj v3.Token) *v3.Token {
 
 type TokenHandlerFunc func(key string, obj *v3.Token) (runtime.Object, error)
 
+type TokenHandlerContextFunc func(ctx context.Context, key string, obj *v3.Token) (runtime.Object, error)
+
 type TokenChangeHandlerFunc func(obj *v3.Token) (runtime.Object, error)
 
 type TokenLister interface {
@@ -71,6 +74,11 @@ type TokenController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler TokenHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type TokenControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler TokenHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler TokenHandlerContextFunc) error
 }
 
 type TokenInterface interface {
@@ -94,6 +102,11 @@ type TokenInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync TokenHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle TokenLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle TokenLifecycle)
+}
+
+type TokenInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler TokenHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync TokenHandlerContextFunc) error
 }
 
 type tokenLister struct {
@@ -159,6 +172,23 @@ func (c *tokenController) AddHandler(ctx context.Context, name string, handler T
 	})
 }
 
+func (c *tokenController) AddHandlerContext(ctx context.Context, name string, handler TokenHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Token); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *tokenController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler TokenHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *tokenController) AddClusterScopedHandler(ctx context.Context, name, clu
 			return nil, nil
 		}
 	})
+}
+
+func (c *tokenController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler TokenHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Token); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *tokenController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler TokenHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *tokenClient) AddHandler(ctx context.Context, name string, sync TokenHan
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *tokenClient) AddHandlerContext(ctx context.Context, name string, sync TokenHandlerContextFunc) error {
+	return s.Controller().(TokenControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *tokenClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync TokenHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *tokenClient) AddFeatureLifecycle(ctx context.Context, enabled func() bo
 
 func (s *tokenClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync TokenHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *tokenClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync TokenHandlerContextFunc) error {
+	return s.Controller().(TokenControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *tokenClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync TokenHandlerFunc) {

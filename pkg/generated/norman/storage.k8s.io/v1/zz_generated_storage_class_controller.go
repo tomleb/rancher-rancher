@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewStorageClass(namespace, name string, obj v1.StorageClass) *v1.StorageCla
 
 type StorageClassHandlerFunc func(key string, obj *v1.StorageClass) (runtime.Object, error)
 
+type StorageClassHandlerContextFunc func(ctx context.Context, key string, obj *v1.StorageClass) (runtime.Object, error)
+
 type StorageClassChangeHandlerFunc func(obj *v1.StorageClass) (runtime.Object, error)
 
 type StorageClassLister interface {
@@ -71,6 +74,11 @@ type StorageClassController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler StorageClassHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type StorageClassControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler StorageClassHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler StorageClassHandlerContextFunc) error
 }
 
 type StorageClassInterface interface {
@@ -94,6 +102,11 @@ type StorageClassInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync StorageClassHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle StorageClassLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle StorageClassLifecycle)
+}
+
+type StorageClassInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler StorageClassHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync StorageClassHandlerContextFunc) error
 }
 
 type storageClassLister struct {
@@ -159,6 +172,23 @@ func (c *storageClassController) AddHandler(ctx context.Context, name string, ha
 	})
 }
 
+func (c *storageClassController) AddHandlerContext(ctx context.Context, name string, handler StorageClassHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.StorageClass); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *storageClassController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler StorageClassHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *storageClassController) AddClusterScopedHandler(ctx context.Context, na
 			return nil, nil
 		}
 	})
+}
+
+func (c *storageClassController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler StorageClassHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.StorageClass); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *storageClassController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler StorageClassHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *storageClassClient) AddHandler(ctx context.Context, name string, sync S
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *storageClassClient) AddHandlerContext(ctx context.Context, name string, sync StorageClassHandlerContextFunc) error {
+	return s.Controller().(StorageClassControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *storageClassClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync StorageClassHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *storageClassClient) AddFeatureLifecycle(ctx context.Context, enabled fu
 
 func (s *storageClassClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync StorageClassHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *storageClassClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync StorageClassHandlerContextFunc) error {
+	return s.Controller().(StorageClassControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *storageClassClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync StorageClassHandlerFunc) {

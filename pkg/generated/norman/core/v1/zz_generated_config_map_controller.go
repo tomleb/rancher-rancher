@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewConfigMap(namespace, name string, obj v1.ConfigMap) *v1.ConfigMap {
 
 type ConfigMapHandlerFunc func(key string, obj *v1.ConfigMap) (runtime.Object, error)
 
+type ConfigMapHandlerContextFunc func(ctx context.Context, key string, obj *v1.ConfigMap) (runtime.Object, error)
+
 type ConfigMapChangeHandlerFunc func(obj *v1.ConfigMap) (runtime.Object, error)
 
 type ConfigMapLister interface {
@@ -72,6 +75,11 @@ type ConfigMapController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ConfigMapHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ConfigMapControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ConfigMapHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ConfigMapHandlerContextFunc) error
 }
 
 type ConfigMapInterface interface {
@@ -95,6 +103,11 @@ type ConfigMapInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ConfigMapHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ConfigMapLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ConfigMapLifecycle)
+}
+
+type ConfigMapInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ConfigMapHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ConfigMapHandlerContextFunc) error
 }
 
 type configMapLister struct {
@@ -160,6 +173,23 @@ func (c *configMapController) AddHandler(ctx context.Context, name string, handl
 	})
 }
 
+func (c *configMapController) AddHandlerContext(ctx context.Context, name string, handler ConfigMapHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ConfigMap); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *configMapController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ConfigMapHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *configMapController) AddClusterScopedHandler(ctx context.Context, name,
 			return nil, nil
 		}
 	})
+}
+
+func (c *configMapController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ConfigMapHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ConfigMap); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *configMapController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ConfigMapHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *configMapClient) AddHandler(ctx context.Context, name string, sync Conf
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *configMapClient) AddHandlerContext(ctx context.Context, name string, sync ConfigMapHandlerContextFunc) error {
+	return s.Controller().(ConfigMapControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *configMapClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ConfigMapHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *configMapClient) AddFeatureLifecycle(ctx context.Context, enabled func(
 
 func (s *configMapClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ConfigMapHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *configMapClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ConfigMapHandlerContextFunc) error {
+	return s.Controller().(ConfigMapControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *configMapClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ConfigMapHandlerFunc) {

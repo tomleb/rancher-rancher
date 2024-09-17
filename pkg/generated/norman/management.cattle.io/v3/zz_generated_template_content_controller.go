@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewTemplateContent(namespace, name string, obj v3.TemplateContent) *v3.Temp
 
 type TemplateContentHandlerFunc func(key string, obj *v3.TemplateContent) (runtime.Object, error)
 
+type TemplateContentHandlerContextFunc func(ctx context.Context, key string, obj *v3.TemplateContent) (runtime.Object, error)
+
 type TemplateContentChangeHandlerFunc func(obj *v3.TemplateContent) (runtime.Object, error)
 
 type TemplateContentLister interface {
@@ -71,6 +74,11 @@ type TemplateContentController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler TemplateContentHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type TemplateContentControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler TemplateContentHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler TemplateContentHandlerContextFunc) error
 }
 
 type TemplateContentInterface interface {
@@ -94,6 +102,11 @@ type TemplateContentInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync TemplateContentHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle TemplateContentLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle TemplateContentLifecycle)
+}
+
+type TemplateContentInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler TemplateContentHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync TemplateContentHandlerContextFunc) error
 }
 
 type templateContentLister struct {
@@ -159,6 +172,23 @@ func (c *templateContentController) AddHandler(ctx context.Context, name string,
 	})
 }
 
+func (c *templateContentController) AddHandlerContext(ctx context.Context, name string, handler TemplateContentHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.TemplateContent); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *templateContentController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler TemplateContentHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *templateContentController) AddClusterScopedHandler(ctx context.Context,
 			return nil, nil
 		}
 	})
+}
+
+func (c *templateContentController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler TemplateContentHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.TemplateContent); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *templateContentController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler TemplateContentHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *templateContentClient) AddHandler(ctx context.Context, name string, syn
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *templateContentClient) AddHandlerContext(ctx context.Context, name string, sync TemplateContentHandlerContextFunc) error {
+	return s.Controller().(TemplateContentControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *templateContentClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync TemplateContentHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *templateContentClient) AddFeatureLifecycle(ctx context.Context, enabled
 
 func (s *templateContentClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync TemplateContentHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *templateContentClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync TemplateContentHandlerContextFunc) error {
+	return s.Controller().(TemplateContentControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *templateContentClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync TemplateContentHandlerFunc) {

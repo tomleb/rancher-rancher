@@ -1,11 +1,29 @@
 package v1
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type replicaSetLifecycleConverter struct {
+	lifecycle ReplicaSetLifecycle
+}
+
+func (w *replicaSetLifecycleConverter) CreateContext(_ context.Context, obj *v1.ReplicaSet) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *replicaSetLifecycleConverter) RemoveContext(_ context.Context, obj *v1.ReplicaSet) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *replicaSetLifecycleConverter) UpdatedContext(_ context.Context, obj *v1.ReplicaSet) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type ReplicaSetLifecycle interface {
 	Create(obj *v1.ReplicaSet) (runtime.Object, error)
@@ -13,8 +31,14 @@ type ReplicaSetLifecycle interface {
 	Updated(obj *v1.ReplicaSet) (runtime.Object, error)
 }
 
+type ReplicaSetLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v1.ReplicaSet) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v1.ReplicaSet) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v1.ReplicaSet) (runtime.Object, error)
+}
+
 type replicaSetLifecycleAdapter struct {
-	lifecycle ReplicaSetLifecycle
+	lifecycle ReplicaSetLifecycleContext
 }
 
 func (w *replicaSetLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *replicaSetLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *replicaSetLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v1.ReplicaSet))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *replicaSetLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v1.ReplicaSet))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *replicaSetLifecycleAdapter) Create(obj runtime.Object) (runtime.Object,
 }
 
 func (w *replicaSetLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v1.ReplicaSet))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *replicaSetLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v1.ReplicaSet))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *replicaSetLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Objec
 }
 
 func (w *replicaSetLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v1.ReplicaSet))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *replicaSetLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v1.ReplicaSet))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewReplicaSetLifecycleAdapter(name string, clusterScoped bool, client Repli
 	if clusterScoped {
 		resource.PutClusterScoped(ReplicaSetGroupVersionResource)
 	}
-	adapter := &replicaSetLifecycleAdapter{lifecycle: l}
+	adapter := &replicaSetLifecycleAdapter{lifecycle: &replicaSetLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v1.ReplicaSet) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewReplicaSetLifecycleAdapterContext(name string, clusterScoped bool, client ReplicaSetInterface, l ReplicaSetLifecycleContext) ReplicaSetHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(ReplicaSetGroupVersionResource)
+	}
+	adapter := &replicaSetLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v1.ReplicaSet) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

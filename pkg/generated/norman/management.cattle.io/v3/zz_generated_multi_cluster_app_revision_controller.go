@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewMultiClusterAppRevision(namespace, name string, obj v3.MultiClusterAppRe
 
 type MultiClusterAppRevisionHandlerFunc func(key string, obj *v3.MultiClusterAppRevision) (runtime.Object, error)
 
+type MultiClusterAppRevisionHandlerContextFunc func(ctx context.Context, key string, obj *v3.MultiClusterAppRevision) (runtime.Object, error)
+
 type MultiClusterAppRevisionChangeHandlerFunc func(obj *v3.MultiClusterAppRevision) (runtime.Object, error)
 
 type MultiClusterAppRevisionLister interface {
@@ -72,6 +75,11 @@ type MultiClusterAppRevisionController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler MultiClusterAppRevisionHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type MultiClusterAppRevisionControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler MultiClusterAppRevisionHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler MultiClusterAppRevisionHandlerContextFunc) error
 }
 
 type MultiClusterAppRevisionInterface interface {
@@ -95,6 +103,11 @@ type MultiClusterAppRevisionInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync MultiClusterAppRevisionHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle MultiClusterAppRevisionLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle MultiClusterAppRevisionLifecycle)
+}
+
+type MultiClusterAppRevisionInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler MultiClusterAppRevisionHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync MultiClusterAppRevisionHandlerContextFunc) error
 }
 
 type multiClusterAppRevisionLister struct {
@@ -160,6 +173,23 @@ func (c *multiClusterAppRevisionController) AddHandler(ctx context.Context, name
 	})
 }
 
+func (c *multiClusterAppRevisionController) AddHandlerContext(ctx context.Context, name string, handler MultiClusterAppRevisionHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.MultiClusterAppRevision); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *multiClusterAppRevisionController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler MultiClusterAppRevisionHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *multiClusterAppRevisionController) AddClusterScopedHandler(ctx context.
 			return nil, nil
 		}
 	})
+}
+
+func (c *multiClusterAppRevisionController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler MultiClusterAppRevisionHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.MultiClusterAppRevision); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *multiClusterAppRevisionController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler MultiClusterAppRevisionHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *multiClusterAppRevisionClient) AddHandler(ctx context.Context, name str
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *multiClusterAppRevisionClient) AddHandlerContext(ctx context.Context, name string, sync MultiClusterAppRevisionHandlerContextFunc) error {
+	return s.Controller().(MultiClusterAppRevisionControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *multiClusterAppRevisionClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync MultiClusterAppRevisionHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *multiClusterAppRevisionClient) AddFeatureLifecycle(ctx context.Context,
 
 func (s *multiClusterAppRevisionClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync MultiClusterAppRevisionHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *multiClusterAppRevisionClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync MultiClusterAppRevisionHandlerContextFunc) error {
+	return s.Controller().(MultiClusterAppRevisionControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *multiClusterAppRevisionClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync MultiClusterAppRevisionHandlerFunc) {

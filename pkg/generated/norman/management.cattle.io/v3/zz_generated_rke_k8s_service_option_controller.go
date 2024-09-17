@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewRkeK8sServiceOption(namespace, name string, obj v3.RkeK8sServiceOption) 
 
 type RkeK8sServiceOptionHandlerFunc func(key string, obj *v3.RkeK8sServiceOption) (runtime.Object, error)
 
+type RkeK8sServiceOptionHandlerContextFunc func(ctx context.Context, key string, obj *v3.RkeK8sServiceOption) (runtime.Object, error)
+
 type RkeK8sServiceOptionChangeHandlerFunc func(obj *v3.RkeK8sServiceOption) (runtime.Object, error)
 
 type RkeK8sServiceOptionLister interface {
@@ -72,6 +75,11 @@ type RkeK8sServiceOptionController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler RkeK8sServiceOptionHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type RkeK8sServiceOptionControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeK8sServiceOptionHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler RkeK8sServiceOptionHandlerContextFunc) error
 }
 
 type RkeK8sServiceOptionInterface interface {
@@ -95,6 +103,11 @@ type RkeK8sServiceOptionInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeK8sServiceOptionHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle RkeK8sServiceOptionLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle RkeK8sServiceOptionLifecycle)
+}
+
+type RkeK8sServiceOptionInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeK8sServiceOptionHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeK8sServiceOptionHandlerContextFunc) error
 }
 
 type rkeK8sServiceOptionLister struct {
@@ -160,6 +173,23 @@ func (c *rkeK8sServiceOptionController) AddHandler(ctx context.Context, name str
 	})
 }
 
+func (c *rkeK8sServiceOptionController) AddHandlerContext(ctx context.Context, name string, handler RkeK8sServiceOptionHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeK8sServiceOption); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *rkeK8sServiceOptionController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler RkeK8sServiceOptionHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *rkeK8sServiceOptionController) AddClusterScopedHandler(ctx context.Cont
 			return nil, nil
 		}
 	})
+}
+
+func (c *rkeK8sServiceOptionController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler RkeK8sServiceOptionHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeK8sServiceOption); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *rkeK8sServiceOptionController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler RkeK8sServiceOptionHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *rkeK8sServiceOptionClient) AddHandler(ctx context.Context, name string,
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *rkeK8sServiceOptionClient) AddHandlerContext(ctx context.Context, name string, sync RkeK8sServiceOptionHandlerContextFunc) error {
+	return s.Controller().(RkeK8sServiceOptionControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *rkeK8sServiceOptionClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync RkeK8sServiceOptionHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *rkeK8sServiceOptionClient) AddFeatureLifecycle(ctx context.Context, ena
 
 func (s *rkeK8sServiceOptionClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync RkeK8sServiceOptionHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *rkeK8sServiceOptionClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeK8sServiceOptionHandlerContextFunc) error {
+	return s.Controller().(RkeK8sServiceOptionControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *rkeK8sServiceOptionClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeK8sServiceOptionHandlerFunc) {

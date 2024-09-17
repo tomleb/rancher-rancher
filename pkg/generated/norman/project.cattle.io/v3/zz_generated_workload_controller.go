@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewWorkload(namespace, name string, obj v3.Workload) *v3.Workload {
 
 type WorkloadHandlerFunc func(key string, obj *v3.Workload) (runtime.Object, error)
 
+type WorkloadHandlerContextFunc func(ctx context.Context, key string, obj *v3.Workload) (runtime.Object, error)
+
 type WorkloadChangeHandlerFunc func(obj *v3.Workload) (runtime.Object, error)
 
 type WorkloadLister interface {
@@ -72,6 +75,11 @@ type WorkloadController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler WorkloadHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type WorkloadControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler WorkloadHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler WorkloadHandlerContextFunc) error
 }
 
 type WorkloadInterface interface {
@@ -95,6 +103,11 @@ type WorkloadInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync WorkloadHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle WorkloadLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle WorkloadLifecycle)
+}
+
+type WorkloadInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler WorkloadHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync WorkloadHandlerContextFunc) error
 }
 
 type workloadLister struct {
@@ -160,6 +173,23 @@ func (c *workloadController) AddHandler(ctx context.Context, name string, handle
 	})
 }
 
+func (c *workloadController) AddHandlerContext(ctx context.Context, name string, handler WorkloadHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Workload); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *workloadController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler WorkloadHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *workloadController) AddClusterScopedHandler(ctx context.Context, name, 
 			return nil, nil
 		}
 	})
+}
+
+func (c *workloadController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler WorkloadHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Workload); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *workloadController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler WorkloadHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *workloadClient) AddHandler(ctx context.Context, name string, sync Workl
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *workloadClient) AddHandlerContext(ctx context.Context, name string, sync WorkloadHandlerContextFunc) error {
+	return s.Controller().(WorkloadControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *workloadClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync WorkloadHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *workloadClient) AddFeatureLifecycle(ctx context.Context, enabled func()
 
 func (s *workloadClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync WorkloadHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *workloadClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync WorkloadHandlerContextFunc) error {
+	return s.Controller().(WorkloadControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *workloadClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync WorkloadHandlerFunc) {

@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewSetting(namespace, name string, obj v3.Setting) *v3.Setting {
 
 type SettingHandlerFunc func(key string, obj *v3.Setting) (runtime.Object, error)
 
+type SettingHandlerContextFunc func(ctx context.Context, key string, obj *v3.Setting) (runtime.Object, error)
+
 type SettingChangeHandlerFunc func(obj *v3.Setting) (runtime.Object, error)
 
 type SettingLister interface {
@@ -71,6 +74,11 @@ type SettingController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler SettingHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type SettingControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SettingHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler SettingHandlerContextFunc) error
 }
 
 type SettingInterface interface {
@@ -94,6 +102,11 @@ type SettingInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SettingHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle SettingLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle SettingLifecycle)
+}
+
+type SettingInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SettingHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SettingHandlerContextFunc) error
 }
 
 type settingLister struct {
@@ -159,6 +172,23 @@ func (c *settingController) AddHandler(ctx context.Context, name string, handler
 	})
 }
 
+func (c *settingController) AddHandlerContext(ctx context.Context, name string, handler SettingHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Setting); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *settingController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler SettingHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *settingController) AddClusterScopedHandler(ctx context.Context, name, c
 			return nil, nil
 		}
 	})
+}
+
+func (c *settingController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler SettingHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Setting); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *settingController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler SettingHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *settingClient) AddHandler(ctx context.Context, name string, sync Settin
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *settingClient) AddHandlerContext(ctx context.Context, name string, sync SettingHandlerContextFunc) error {
+	return s.Controller().(SettingControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *settingClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync SettingHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *settingClient) AddFeatureLifecycle(ctx context.Context, enabled func() 
 
 func (s *settingClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync SettingHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *settingClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SettingHandlerContextFunc) error {
+	return s.Controller().(SettingControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *settingClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SettingHandlerFunc) {

@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewProjectRoleTemplateBinding(namespace, name string, obj v3.ProjectRoleTem
 
 type ProjectRoleTemplateBindingHandlerFunc func(key string, obj *v3.ProjectRoleTemplateBinding) (runtime.Object, error)
 
+type ProjectRoleTemplateBindingHandlerContextFunc func(ctx context.Context, key string, obj *v3.ProjectRoleTemplateBinding) (runtime.Object, error)
+
 type ProjectRoleTemplateBindingChangeHandlerFunc func(obj *v3.ProjectRoleTemplateBinding) (runtime.Object, error)
 
 type ProjectRoleTemplateBindingLister interface {
@@ -72,6 +75,11 @@ type ProjectRoleTemplateBindingController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ProjectRoleTemplateBindingHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ProjectRoleTemplateBindingControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectRoleTemplateBindingHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ProjectRoleTemplateBindingHandlerContextFunc) error
 }
 
 type ProjectRoleTemplateBindingInterface interface {
@@ -95,6 +103,11 @@ type ProjectRoleTemplateBindingInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectRoleTemplateBindingHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ProjectRoleTemplateBindingLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ProjectRoleTemplateBindingLifecycle)
+}
+
+type ProjectRoleTemplateBindingInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectRoleTemplateBindingHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectRoleTemplateBindingHandlerContextFunc) error
 }
 
 type projectRoleTemplateBindingLister struct {
@@ -160,6 +173,23 @@ func (c *projectRoleTemplateBindingController) AddHandler(ctx context.Context, n
 	})
 }
 
+func (c *projectRoleTemplateBindingController) AddHandlerContext(ctx context.Context, name string, handler ProjectRoleTemplateBindingHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ProjectRoleTemplateBinding); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *projectRoleTemplateBindingController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ProjectRoleTemplateBindingHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *projectRoleTemplateBindingController) AddClusterScopedHandler(ctx conte
 			return nil, nil
 		}
 	})
+}
+
+func (c *projectRoleTemplateBindingController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ProjectRoleTemplateBindingHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ProjectRoleTemplateBinding); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *projectRoleTemplateBindingController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ProjectRoleTemplateBindingHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *projectRoleTemplateBindingClient) AddHandler(ctx context.Context, name 
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *projectRoleTemplateBindingClient) AddHandlerContext(ctx context.Context, name string, sync ProjectRoleTemplateBindingHandlerContextFunc) error {
+	return s.Controller().(ProjectRoleTemplateBindingControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *projectRoleTemplateBindingClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ProjectRoleTemplateBindingHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *projectRoleTemplateBindingClient) AddFeatureLifecycle(ctx context.Conte
 
 func (s *projectRoleTemplateBindingClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ProjectRoleTemplateBindingHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *projectRoleTemplateBindingClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectRoleTemplateBindingHandlerContextFunc) error {
+	return s.Controller().(ProjectRoleTemplateBindingControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *projectRoleTemplateBindingClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectRoleTemplateBindingHandlerFunc) {

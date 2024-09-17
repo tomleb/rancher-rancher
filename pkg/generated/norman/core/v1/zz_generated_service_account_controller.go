@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewServiceAccount(namespace, name string, obj v1.ServiceAccount) *v1.Servic
 
 type ServiceAccountHandlerFunc func(key string, obj *v1.ServiceAccount) (runtime.Object, error)
 
+type ServiceAccountHandlerContextFunc func(ctx context.Context, key string, obj *v1.ServiceAccount) (runtime.Object, error)
+
 type ServiceAccountChangeHandlerFunc func(obj *v1.ServiceAccount) (runtime.Object, error)
 
 type ServiceAccountLister interface {
@@ -72,6 +75,11 @@ type ServiceAccountController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ServiceAccountHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ServiceAccountControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ServiceAccountHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ServiceAccountHandlerContextFunc) error
 }
 
 type ServiceAccountInterface interface {
@@ -95,6 +103,11 @@ type ServiceAccountInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ServiceAccountHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ServiceAccountLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ServiceAccountLifecycle)
+}
+
+type ServiceAccountInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ServiceAccountHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ServiceAccountHandlerContextFunc) error
 }
 
 type serviceAccountLister struct {
@@ -160,6 +173,23 @@ func (c *serviceAccountController) AddHandler(ctx context.Context, name string, 
 	})
 }
 
+func (c *serviceAccountController) AddHandlerContext(ctx context.Context, name string, handler ServiceAccountHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ServiceAccount); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *serviceAccountController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ServiceAccountHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *serviceAccountController) AddClusterScopedHandler(ctx context.Context, 
 			return nil, nil
 		}
 	})
+}
+
+func (c *serviceAccountController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ServiceAccountHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ServiceAccount); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *serviceAccountController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ServiceAccountHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *serviceAccountClient) AddHandler(ctx context.Context, name string, sync
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *serviceAccountClient) AddHandlerContext(ctx context.Context, name string, sync ServiceAccountHandlerContextFunc) error {
+	return s.Controller().(ServiceAccountControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *serviceAccountClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ServiceAccountHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *serviceAccountClient) AddFeatureLifecycle(ctx context.Context, enabled 
 
 func (s *serviceAccountClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ServiceAccountHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *serviceAccountClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ServiceAccountHandlerContextFunc) error {
+	return s.Controller().(ServiceAccountControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *serviceAccountClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ServiceAccountHandlerFunc) {

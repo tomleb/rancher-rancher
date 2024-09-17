@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewClusterCatalog(namespace, name string, obj v3.ClusterCatalog) *v3.Cluste
 
 type ClusterCatalogHandlerFunc func(key string, obj *v3.ClusterCatalog) (runtime.Object, error)
 
+type ClusterCatalogHandlerContextFunc func(ctx context.Context, key string, obj *v3.ClusterCatalog) (runtime.Object, error)
+
 type ClusterCatalogChangeHandlerFunc func(obj *v3.ClusterCatalog) (runtime.Object, error)
 
 type ClusterCatalogLister interface {
@@ -72,6 +75,11 @@ type ClusterCatalogController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ClusterCatalogHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ClusterCatalogControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ClusterCatalogHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ClusterCatalogHandlerContextFunc) error
 }
 
 type ClusterCatalogInterface interface {
@@ -95,6 +103,11 @@ type ClusterCatalogInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ClusterCatalogHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ClusterCatalogLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ClusterCatalogLifecycle)
+}
+
+type ClusterCatalogInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ClusterCatalogHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ClusterCatalogHandlerContextFunc) error
 }
 
 type clusterCatalogLister struct {
@@ -160,6 +173,23 @@ func (c *clusterCatalogController) AddHandler(ctx context.Context, name string, 
 	})
 }
 
+func (c *clusterCatalogController) AddHandlerContext(ctx context.Context, name string, handler ClusterCatalogHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ClusterCatalog); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *clusterCatalogController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ClusterCatalogHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *clusterCatalogController) AddClusterScopedHandler(ctx context.Context, 
 			return nil, nil
 		}
 	})
+}
+
+func (c *clusterCatalogController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ClusterCatalogHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ClusterCatalog); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *clusterCatalogController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ClusterCatalogHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *clusterCatalogClient) AddHandler(ctx context.Context, name string, sync
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *clusterCatalogClient) AddHandlerContext(ctx context.Context, name string, sync ClusterCatalogHandlerContextFunc) error {
+	return s.Controller().(ClusterCatalogControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *clusterCatalogClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ClusterCatalogHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *clusterCatalogClient) AddFeatureLifecycle(ctx context.Context, enabled 
 
 func (s *clusterCatalogClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ClusterCatalogHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *clusterCatalogClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ClusterCatalogHandlerContextFunc) error {
+	return s.Controller().(ClusterCatalogControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *clusterCatalogClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ClusterCatalogHandlerFunc) {

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewSecret(namespace, name string, obj v1.Secret) *v1.Secret {
 
 type SecretHandlerFunc func(key string, obj *v1.Secret) (runtime.Object, error)
 
+type SecretHandlerContextFunc func(ctx context.Context, key string, obj *v1.Secret) (runtime.Object, error)
+
 type SecretChangeHandlerFunc func(obj *v1.Secret) (runtime.Object, error)
 
 type SecretLister interface {
@@ -72,6 +75,11 @@ type SecretController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler SecretHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type SecretControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SecretHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler SecretHandlerContextFunc) error
 }
 
 type SecretInterface interface {
@@ -95,6 +103,11 @@ type SecretInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SecretHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle SecretLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle SecretLifecycle)
+}
+
+type SecretInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler SecretHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SecretHandlerContextFunc) error
 }
 
 type secretLister struct {
@@ -160,6 +173,23 @@ func (c *secretController) AddHandler(ctx context.Context, name string, handler 
 	})
 }
 
+func (c *secretController) AddHandlerContext(ctx context.Context, name string, handler SecretHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Secret); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *secretController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler SecretHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *secretController) AddClusterScopedHandler(ctx context.Context, name, cl
 			return nil, nil
 		}
 	})
+}
+
+func (c *secretController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler SecretHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.Secret); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *secretController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler SecretHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *secretClient) AddHandler(ctx context.Context, name string, sync SecretH
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *secretClient) AddHandlerContext(ctx context.Context, name string, sync SecretHandlerContextFunc) error {
+	return s.Controller().(SecretControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *secretClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync SecretHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *secretClient) AddFeatureLifecycle(ctx context.Context, enabled func() b
 
 func (s *secretClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync SecretHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *secretClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync SecretHandlerContextFunc) error {
+	return s.Controller().(SecretControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *secretClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync SecretHandlerFunc) {

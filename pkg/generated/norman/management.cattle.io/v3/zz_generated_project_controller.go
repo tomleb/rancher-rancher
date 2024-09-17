@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewProject(namespace, name string, obj v3.Project) *v3.Project {
 
 type ProjectHandlerFunc func(key string, obj *v3.Project) (runtime.Object, error)
 
+type ProjectHandlerContextFunc func(ctx context.Context, key string, obj *v3.Project) (runtime.Object, error)
+
 type ProjectChangeHandlerFunc func(obj *v3.Project) (runtime.Object, error)
 
 type ProjectLister interface {
@@ -72,6 +75,11 @@ type ProjectController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ProjectHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ProjectControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ProjectHandlerContextFunc) error
 }
 
 type ProjectInterface interface {
@@ -95,6 +103,11 @@ type ProjectInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ProjectLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ProjectLifecycle)
+}
+
+type ProjectInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectHandlerContextFunc) error
 }
 
 type projectLister struct {
@@ -160,6 +173,23 @@ func (c *projectController) AddHandler(ctx context.Context, name string, handler
 	})
 }
 
+func (c *projectController) AddHandlerContext(ctx context.Context, name string, handler ProjectHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Project); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *projectController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ProjectHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *projectController) AddClusterScopedHandler(ctx context.Context, name, c
 			return nil, nil
 		}
 	})
+}
+
+func (c *projectController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ProjectHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Project); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *projectController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ProjectHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *projectClient) AddHandler(ctx context.Context, name string, sync Projec
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *projectClient) AddHandlerContext(ctx context.Context, name string, sync ProjectHandlerContextFunc) error {
+	return s.Controller().(ProjectControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *projectClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ProjectHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *projectClient) AddFeatureLifecycle(ctx context.Context, enabled func() 
 
 func (s *projectClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ProjectHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *projectClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectHandlerContextFunc) error {
+	return s.Controller().(ProjectControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *projectClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectHandlerFunc) {

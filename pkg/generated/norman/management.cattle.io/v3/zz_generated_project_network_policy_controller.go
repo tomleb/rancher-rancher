@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewProjectNetworkPolicy(namespace, name string, obj v3.ProjectNetworkPolicy
 
 type ProjectNetworkPolicyHandlerFunc func(key string, obj *v3.ProjectNetworkPolicy) (runtime.Object, error)
 
+type ProjectNetworkPolicyHandlerContextFunc func(ctx context.Context, key string, obj *v3.ProjectNetworkPolicy) (runtime.Object, error)
+
 type ProjectNetworkPolicyChangeHandlerFunc func(obj *v3.ProjectNetworkPolicy) (runtime.Object, error)
 
 type ProjectNetworkPolicyLister interface {
@@ -72,6 +75,11 @@ type ProjectNetworkPolicyController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ProjectNetworkPolicyHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ProjectNetworkPolicyControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectNetworkPolicyHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ProjectNetworkPolicyHandlerContextFunc) error
 }
 
 type ProjectNetworkPolicyInterface interface {
@@ -95,6 +103,11 @@ type ProjectNetworkPolicyInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectNetworkPolicyHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ProjectNetworkPolicyLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ProjectNetworkPolicyLifecycle)
+}
+
+type ProjectNetworkPolicyInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ProjectNetworkPolicyHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectNetworkPolicyHandlerContextFunc) error
 }
 
 type projectNetworkPolicyLister struct {
@@ -160,6 +173,23 @@ func (c *projectNetworkPolicyController) AddHandler(ctx context.Context, name st
 	})
 }
 
+func (c *projectNetworkPolicyController) AddHandlerContext(ctx context.Context, name string, handler ProjectNetworkPolicyHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ProjectNetworkPolicy); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *projectNetworkPolicyController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ProjectNetworkPolicyHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *projectNetworkPolicyController) AddClusterScopedHandler(ctx context.Con
 			return nil, nil
 		}
 	})
+}
+
+func (c *projectNetworkPolicyController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ProjectNetworkPolicyHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ProjectNetworkPolicy); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *projectNetworkPolicyController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ProjectNetworkPolicyHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *projectNetworkPolicyClient) AddHandler(ctx context.Context, name string
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *projectNetworkPolicyClient) AddHandlerContext(ctx context.Context, name string, sync ProjectNetworkPolicyHandlerContextFunc) error {
+	return s.Controller().(ProjectNetworkPolicyControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *projectNetworkPolicyClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ProjectNetworkPolicyHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *projectNetworkPolicyClient) AddFeatureLifecycle(ctx context.Context, en
 
 func (s *projectNetworkPolicyClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ProjectNetworkPolicyHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *projectNetworkPolicyClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ProjectNetworkPolicyHandlerContextFunc) error {
+	return s.Controller().(ProjectNetworkPolicyControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *projectNetworkPolicyClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ProjectNetworkPolicyHandlerFunc) {

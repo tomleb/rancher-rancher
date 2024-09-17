@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewClusterRole(namespace, name string, obj v1.ClusterRole) *v1.ClusterRole 
 
 type ClusterRoleHandlerFunc func(key string, obj *v1.ClusterRole) (runtime.Object, error)
 
+type ClusterRoleHandlerContextFunc func(ctx context.Context, key string, obj *v1.ClusterRole) (runtime.Object, error)
+
 type ClusterRoleChangeHandlerFunc func(obj *v1.ClusterRole) (runtime.Object, error)
 
 type ClusterRoleLister interface {
@@ -71,6 +74,11 @@ type ClusterRoleController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ClusterRoleHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ClusterRoleControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ClusterRoleHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ClusterRoleHandlerContextFunc) error
 }
 
 type ClusterRoleInterface interface {
@@ -94,6 +102,11 @@ type ClusterRoleInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ClusterRoleHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ClusterRoleLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ClusterRoleLifecycle)
+}
+
+type ClusterRoleInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ClusterRoleHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ClusterRoleHandlerContextFunc) error
 }
 
 type clusterRoleLister struct {
@@ -159,6 +172,23 @@ func (c *clusterRoleController) AddHandler(ctx context.Context, name string, han
 	})
 }
 
+func (c *clusterRoleController) AddHandlerContext(ctx context.Context, name string, handler ClusterRoleHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ClusterRole); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *clusterRoleController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ClusterRoleHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *clusterRoleController) AddClusterScopedHandler(ctx context.Context, nam
 			return nil, nil
 		}
 	})
+}
+
+func (c *clusterRoleController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ClusterRoleHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ClusterRole); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *clusterRoleController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ClusterRoleHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *clusterRoleClient) AddHandler(ctx context.Context, name string, sync Cl
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *clusterRoleClient) AddHandlerContext(ctx context.Context, name string, sync ClusterRoleHandlerContextFunc) error {
+	return s.Controller().(ClusterRoleControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *clusterRoleClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ClusterRoleHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *clusterRoleClient) AddFeatureLifecycle(ctx context.Context, enabled fun
 
 func (s *clusterRoleClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ClusterRoleHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *clusterRoleClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ClusterRoleHandlerContextFunc) error {
+	return s.Controller().(ClusterRoleControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *clusterRoleClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ClusterRoleHandlerFunc) {

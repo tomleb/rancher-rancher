@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewLdapConfig(namespace, name string, obj v3.LdapConfig) *v3.LdapConfig {
 
 type LdapConfigHandlerFunc func(key string, obj *v3.LdapConfig) (runtime.Object, error)
 
+type LdapConfigHandlerContextFunc func(ctx context.Context, key string, obj *v3.LdapConfig) (runtime.Object, error)
+
 type LdapConfigChangeHandlerFunc func(obj *v3.LdapConfig) (runtime.Object, error)
 
 type LdapConfigLister interface {
@@ -71,6 +74,11 @@ type LdapConfigController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler LdapConfigHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type LdapConfigControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler LdapConfigHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler LdapConfigHandlerContextFunc) error
 }
 
 type LdapConfigInterface interface {
@@ -94,6 +102,11 @@ type LdapConfigInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync LdapConfigHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle LdapConfigLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle LdapConfigLifecycle)
+}
+
+type LdapConfigInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler LdapConfigHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync LdapConfigHandlerContextFunc) error
 }
 
 type ldapConfigLister struct {
@@ -159,6 +172,23 @@ func (c *ldapConfigController) AddHandler(ctx context.Context, name string, hand
 	})
 }
 
+func (c *ldapConfigController) AddHandlerContext(ctx context.Context, name string, handler LdapConfigHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.LdapConfig); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *ldapConfigController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler LdapConfigHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *ldapConfigController) AddClusterScopedHandler(ctx context.Context, name
 			return nil, nil
 		}
 	})
+}
+
+func (c *ldapConfigController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler LdapConfigHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.LdapConfig); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *ldapConfigController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler LdapConfigHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *ldapConfigClient) AddHandler(ctx context.Context, name string, sync Lda
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *ldapConfigClient) AddHandlerContext(ctx context.Context, name string, sync LdapConfigHandlerContextFunc) error {
+	return s.Controller().(LdapConfigControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *ldapConfigClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync LdapConfigHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *ldapConfigClient) AddFeatureLifecycle(ctx context.Context, enabled func
 
 func (s *ldapConfigClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync LdapConfigHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *ldapConfigClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync LdapConfigHandlerContextFunc) error {
+	return s.Controller().(LdapConfigControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *ldapConfigClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync LdapConfigHandlerFunc) {

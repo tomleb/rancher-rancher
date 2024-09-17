@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewCertificate(namespace, name string, obj v3.Certificate) *v3.Certificate 
 
 type CertificateHandlerFunc func(key string, obj *v3.Certificate) (runtime.Object, error)
 
+type CertificateHandlerContextFunc func(ctx context.Context, key string, obj *v3.Certificate) (runtime.Object, error)
+
 type CertificateChangeHandlerFunc func(obj *v3.Certificate) (runtime.Object, error)
 
 type CertificateLister interface {
@@ -72,6 +75,11 @@ type CertificateController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler CertificateHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type CertificateControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CertificateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler CertificateHandlerContextFunc) error
 }
 
 type CertificateInterface interface {
@@ -95,6 +103,11 @@ type CertificateInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CertificateHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle CertificateLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle CertificateLifecycle)
+}
+
+type CertificateInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CertificateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CertificateHandlerContextFunc) error
 }
 
 type certificateLister struct {
@@ -160,6 +173,23 @@ func (c *certificateController) AddHandler(ctx context.Context, name string, han
 	})
 }
 
+func (c *certificateController) AddHandlerContext(ctx context.Context, name string, handler CertificateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Certificate); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *certificateController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler CertificateHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *certificateController) AddClusterScopedHandler(ctx context.Context, nam
 			return nil, nil
 		}
 	})
+}
+
+func (c *certificateController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler CertificateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Certificate); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *certificateController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler CertificateHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *certificateClient) AddHandler(ctx context.Context, name string, sync Ce
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *certificateClient) AddHandlerContext(ctx context.Context, name string, sync CertificateHandlerContextFunc) error {
+	return s.Controller().(CertificateControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *certificateClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync CertificateHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *certificateClient) AddFeatureLifecycle(ctx context.Context, enabled fun
 
 func (s *certificateClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync CertificateHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *certificateClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CertificateHandlerContextFunc) error {
+	return s.Controller().(CertificateControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *certificateClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CertificateHandlerFunc) {

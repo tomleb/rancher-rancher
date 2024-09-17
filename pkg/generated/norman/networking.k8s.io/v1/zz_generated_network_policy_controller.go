@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewNetworkPolicy(namespace, name string, obj v1.NetworkPolicy) *v1.NetworkP
 
 type NetworkPolicyHandlerFunc func(key string, obj *v1.NetworkPolicy) (runtime.Object, error)
 
+type NetworkPolicyHandlerContextFunc func(ctx context.Context, key string, obj *v1.NetworkPolicy) (runtime.Object, error)
+
 type NetworkPolicyChangeHandlerFunc func(obj *v1.NetworkPolicy) (runtime.Object, error)
 
 type NetworkPolicyLister interface {
@@ -72,6 +75,11 @@ type NetworkPolicyController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler NetworkPolicyHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type NetworkPolicyControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NetworkPolicyHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler NetworkPolicyHandlerContextFunc) error
 }
 
 type NetworkPolicyInterface interface {
@@ -95,6 +103,11 @@ type NetworkPolicyInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NetworkPolicyHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle NetworkPolicyLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle NetworkPolicyLifecycle)
+}
+
+type NetworkPolicyInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NetworkPolicyHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NetworkPolicyHandlerContextFunc) error
 }
 
 type networkPolicyLister struct {
@@ -160,6 +173,23 @@ func (c *networkPolicyController) AddHandler(ctx context.Context, name string, h
 	})
 }
 
+func (c *networkPolicyController) AddHandlerContext(ctx context.Context, name string, handler NetworkPolicyHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.NetworkPolicy); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *networkPolicyController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler NetworkPolicyHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *networkPolicyController) AddClusterScopedHandler(ctx context.Context, n
 			return nil, nil
 		}
 	})
+}
+
+func (c *networkPolicyController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler NetworkPolicyHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.NetworkPolicy); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *networkPolicyController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler NetworkPolicyHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *networkPolicyClient) AddHandler(ctx context.Context, name string, sync 
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *networkPolicyClient) AddHandlerContext(ctx context.Context, name string, sync NetworkPolicyHandlerContextFunc) error {
+	return s.Controller().(NetworkPolicyControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *networkPolicyClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync NetworkPolicyHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *networkPolicyClient) AddFeatureLifecycle(ctx context.Context, enabled f
 
 func (s *networkPolicyClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync NetworkPolicyHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *networkPolicyClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NetworkPolicyHandlerContextFunc) error {
+	return s.Controller().(NetworkPolicyControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *networkPolicyClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NetworkPolicyHandlerFunc) {

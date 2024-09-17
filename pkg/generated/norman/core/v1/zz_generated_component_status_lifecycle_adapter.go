@@ -1,11 +1,29 @@
 package v1
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type componentStatusLifecycleConverter struct {
+	lifecycle ComponentStatusLifecycle
+}
+
+func (w *componentStatusLifecycleConverter) CreateContext(_ context.Context, obj *v1.ComponentStatus) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *componentStatusLifecycleConverter) RemoveContext(_ context.Context, obj *v1.ComponentStatus) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *componentStatusLifecycleConverter) UpdatedContext(_ context.Context, obj *v1.ComponentStatus) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type ComponentStatusLifecycle interface {
 	Create(obj *v1.ComponentStatus) (runtime.Object, error)
@@ -13,8 +31,14 @@ type ComponentStatusLifecycle interface {
 	Updated(obj *v1.ComponentStatus) (runtime.Object, error)
 }
 
+type ComponentStatusLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v1.ComponentStatus) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v1.ComponentStatus) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v1.ComponentStatus) (runtime.Object, error)
+}
+
 type componentStatusLifecycleAdapter struct {
-	lifecycle ComponentStatusLifecycle
+	lifecycle ComponentStatusLifecycleContext
 }
 
 func (w *componentStatusLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *componentStatusLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *componentStatusLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v1.ComponentStatus))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *componentStatusLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v1.ComponentStatus))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *componentStatusLifecycleAdapter) Create(obj runtime.Object) (runtime.Ob
 }
 
 func (w *componentStatusLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v1.ComponentStatus))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *componentStatusLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v1.ComponentStatus))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *componentStatusLifecycleAdapter) Finalize(obj runtime.Object) (runtime.
 }
 
 func (w *componentStatusLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v1.ComponentStatus))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *componentStatusLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v1.ComponentStatus))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewComponentStatusLifecycleAdapter(name string, clusterScoped bool, client 
 	if clusterScoped {
 		resource.PutClusterScoped(ComponentStatusGroupVersionResource)
 	}
-	adapter := &componentStatusLifecycleAdapter{lifecycle: l}
+	adapter := &componentStatusLifecycleAdapter{lifecycle: &componentStatusLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v1.ComponentStatus) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewComponentStatusLifecycleAdapterContext(name string, clusterScoped bool, client ComponentStatusInterface, l ComponentStatusLifecycleContext) ComponentStatusHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(ComponentStatusGroupVersionResource)
+	}
+	adapter := &componentStatusLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v1.ComponentStatus) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

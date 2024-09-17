@@ -1,11 +1,29 @@
 package v3
 
 import (
+	"context"
+
 	"github.com/rancher/norman/lifecycle"
 	"github.com/rancher/norman/resource"
 	"github.com/rancher/rancher/pkg/apis/project.cattle.io/v3"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type namespacedServiceAccountTokenLifecycleConverter struct {
+	lifecycle NamespacedServiceAccountTokenLifecycle
+}
+
+func (w *namespacedServiceAccountTokenLifecycleConverter) CreateContext(_ context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error) {
+	return w.lifecycle.Create(obj)
+}
+
+func (w *namespacedServiceAccountTokenLifecycleConverter) RemoveContext(_ context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error) {
+	return w.lifecycle.Remove(obj)
+}
+
+func (w *namespacedServiceAccountTokenLifecycleConverter) UpdatedContext(_ context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error) {
+	return w.lifecycle.Updated(obj)
+}
 
 type NamespacedServiceAccountTokenLifecycle interface {
 	Create(obj *v3.NamespacedServiceAccountToken) (runtime.Object, error)
@@ -13,8 +31,14 @@ type NamespacedServiceAccountTokenLifecycle interface {
 	Updated(obj *v3.NamespacedServiceAccountToken) (runtime.Object, error)
 }
 
+type NamespacedServiceAccountTokenLifecycleContext interface {
+	CreateContext(ctx context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error)
+	RemoveContext(ctx context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error)
+	UpdatedContext(ctx context.Context, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error)
+}
+
 type namespacedServiceAccountTokenLifecycleAdapter struct {
-	lifecycle NamespacedServiceAccountTokenLifecycle
+	lifecycle NamespacedServiceAccountTokenLifecycleContext
 }
 
 func (w *namespacedServiceAccountTokenLifecycleAdapter) HasCreate() bool {
@@ -28,7 +52,11 @@ func (w *namespacedServiceAccountTokenLifecycleAdapter) HasFinalize() bool {
 }
 
 func (w *namespacedServiceAccountTokenLifecycleAdapter) Create(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Create(obj.(*v3.NamespacedServiceAccountToken))
+	return w.CreateContext(context.Background(), obj)
+}
+
+func (w *namespacedServiceAccountTokenLifecycleAdapter) CreateContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.CreateContext(ctx, obj.(*v3.NamespacedServiceAccountToken))
 	if o == nil {
 		return nil, err
 	}
@@ -36,7 +64,11 @@ func (w *namespacedServiceAccountTokenLifecycleAdapter) Create(obj runtime.Objec
 }
 
 func (w *namespacedServiceAccountTokenLifecycleAdapter) Finalize(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Remove(obj.(*v3.NamespacedServiceAccountToken))
+	return w.FinalizeContext(context.Background(), obj)
+}
+
+func (w *namespacedServiceAccountTokenLifecycleAdapter) FinalizeContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.RemoveContext(ctx, obj.(*v3.NamespacedServiceAccountToken))
 	if o == nil {
 		return nil, err
 	}
@@ -44,7 +76,11 @@ func (w *namespacedServiceAccountTokenLifecycleAdapter) Finalize(obj runtime.Obj
 }
 
 func (w *namespacedServiceAccountTokenLifecycleAdapter) Updated(obj runtime.Object) (runtime.Object, error) {
-	o, err := w.lifecycle.Updated(obj.(*v3.NamespacedServiceAccountToken))
+	return w.UpdatedContext(context.Background(), obj)
+}
+
+func (w *namespacedServiceAccountTokenLifecycleAdapter) UpdatedContext(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+	o, err := w.lifecycle.UpdatedContext(ctx, obj.(*v3.NamespacedServiceAccountToken))
 	if o == nil {
 		return nil, err
 	}
@@ -55,10 +91,25 @@ func NewNamespacedServiceAccountTokenLifecycleAdapter(name string, clusterScoped
 	if clusterScoped {
 		resource.PutClusterScoped(NamespacedServiceAccountTokenGroupVersionResource)
 	}
-	adapter := &namespacedServiceAccountTokenLifecycleAdapter{lifecycle: l}
+	adapter := &namespacedServiceAccountTokenLifecycleAdapter{lifecycle: &namespacedServiceAccountTokenLifecycleConverter{lifecycle: l}}
 	syncFn := lifecycle.NewObjectLifecycleAdapter(name, clusterScoped, adapter, client.ObjectClient())
 	return func(key string, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error) {
 		newObj, err := syncFn(key, obj)
+		if o, ok := newObj.(runtime.Object); ok {
+			return o, err
+		}
+		return nil, err
+	}
+}
+
+func NewNamespacedServiceAccountTokenLifecycleAdapterContext(name string, clusterScoped bool, client NamespacedServiceAccountTokenInterface, l NamespacedServiceAccountTokenLifecycleContext) NamespacedServiceAccountTokenHandlerContextFunc {
+	if clusterScoped {
+		resource.PutClusterScoped(NamespacedServiceAccountTokenGroupVersionResource)
+	}
+	adapter := &namespacedServiceAccountTokenLifecycleAdapter{lifecycle: l}
+	syncFn := lifecycle.NewObjectLifecycleAdapterContext(name, clusterScoped, adapter, client.ObjectClient())
+	return func(ctx context.Context, key string, obj *v3.NamespacedServiceAccountToken) (runtime.Object, error) {
+		newObj, err := syncFn(ctx, key, obj)
 		if o, ok := newObj.(runtime.Object); ok {
 			return o, err
 		}

@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewComposeConfig(namespace, name string, obj v3.ComposeConfig) *v3.ComposeC
 
 type ComposeConfigHandlerFunc func(key string, obj *v3.ComposeConfig) (runtime.Object, error)
 
+type ComposeConfigHandlerContextFunc func(ctx context.Context, key string, obj *v3.ComposeConfig) (runtime.Object, error)
+
 type ComposeConfigChangeHandlerFunc func(obj *v3.ComposeConfig) (runtime.Object, error)
 
 type ComposeConfigLister interface {
@@ -71,6 +74,11 @@ type ComposeConfigController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ComposeConfigHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ComposeConfigControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ComposeConfigHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ComposeConfigHandlerContextFunc) error
 }
 
 type ComposeConfigInterface interface {
@@ -94,6 +102,11 @@ type ComposeConfigInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ComposeConfigHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ComposeConfigLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ComposeConfigLifecycle)
+}
+
+type ComposeConfigInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ComposeConfigHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ComposeConfigHandlerContextFunc) error
 }
 
 type composeConfigLister struct {
@@ -159,6 +172,23 @@ func (c *composeConfigController) AddHandler(ctx context.Context, name string, h
 	})
 }
 
+func (c *composeConfigController) AddHandlerContext(ctx context.Context, name string, handler ComposeConfigHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ComposeConfig); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *composeConfigController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ComposeConfigHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *composeConfigController) AddClusterScopedHandler(ctx context.Context, n
 			return nil, nil
 		}
 	})
+}
+
+func (c *composeConfigController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ComposeConfigHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.ComposeConfig); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *composeConfigController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ComposeConfigHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *composeConfigClient) AddHandler(ctx context.Context, name string, sync 
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *composeConfigClient) AddHandlerContext(ctx context.Context, name string, sync ComposeConfigHandlerContextFunc) error {
+	return s.Controller().(ComposeConfigControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *composeConfigClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ComposeConfigHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *composeConfigClient) AddFeatureLifecycle(ctx context.Context, enabled f
 
 func (s *composeConfigClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ComposeConfigHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *composeConfigClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ComposeConfigHandlerContextFunc) error {
+	return s.Controller().(ComposeConfigControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *composeConfigClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ComposeConfigHandlerFunc) {

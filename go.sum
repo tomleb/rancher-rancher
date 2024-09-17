@@ -1512,8 +1512,6 @@ github.com/rancher/machine v0.15.0-rancher116 h1:h8wHlVZYlNqHvD+FLH9ShpoB1V0WxQy
 github.com/rancher/machine v0.15.0-rancher116/go.mod h1:k/WZ5Pl9xDlo8ihRymBuxlsGLAQ3FHqm4d3+zBe2HJE=
 github.com/rancher/moq v0.0.0-20200712062324-13d1f37d2d77 h1:k+vzmkZQsH06rZnDr+phskSixG9ByNj9gVdzHcc8nxw=
 github.com/rancher/moq v0.0.0-20200712062324-13d1f37d2d77/go.mod h1:wpITyDPTi/Na5h73XkbuEf2AP9fbgrIGqqxVzFhYD6U=
-github.com/rancher/norman v0.0.0-20240822182819-60ccfabc4ac5 h1:Z34NXcW0ymdpVBfd1R0vvqTXBh1gCOdPNFtB+RUahQw=
-github.com/rancher/norman v0.0.0-20240822182819-60ccfabc4ac5/go.mod h1:dyjfXBsNiroPWOdUZe7diUOUSLf6HQ/r2kEpwH/8zas=
 github.com/rancher/qase-go/client v0.0.0-20231114201952-65195ec001fa h1:/qeYlQVfyvsO5yY0dZmm7mRTAsDm54jACiRDx3LAwsA=
 github.com/rancher/qase-go/client v0.0.0-20231114201952-65195ec001fa/go.mod h1:NP3xboG+t2p+XMnrcrJ/L384Ki0Cp3Pww/X+vm5Jcy0=
 github.com/rancher/remotedialer v0.4.0 h1:T9yC5bFMsZFVQ6rK0dNrRg6rRb6Zr/4vsig8S0IJ7ak=
@@ -1609,6 +1607,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b h1:0b+gA19NJ7AYlm+zu+AQPbZv1WMZPgT5kRVebKC2JAg=
 github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b/go.mod h1:zQV9WOXr+XeVtbMBGgKrDvmyPQVYuLhgnU16KlDKDkQ=
+github.com/tomleb/rancher-norman v0.0.0-20240917175011-1e2d42617a65 h1:16FifpUwfl++C7nb8uprBOxSNC0WSpiuxX3TPihPMg0=
+github.com/tomleb/rancher-norman v0.0.0-20240917175011-1e2d42617a65/go.mod h1:XT2Dfvd8YoBqwC2rORxFj3yOSVC0lz1q+xdpNlSOddM=
 github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe h1:ziN+QNFaOnbrKyEwFlwWg/fhlBzYnt2Vq/y4H/5HRko=
 github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe/go.mod h1:KC/8pTWo/MKU0ArFHZkb8/5D6hdXUTlgci/Sb3OS+W8=
 github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 h1:nrZ3ySNYwJbSpD6ce9duiP+QkD3JuLCcWkdaehUS/3Y=

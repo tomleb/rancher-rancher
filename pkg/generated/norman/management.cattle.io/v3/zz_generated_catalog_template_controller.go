@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewCatalogTemplate(namespace, name string, obj v3.CatalogTemplate) *v3.Cata
 
 type CatalogTemplateHandlerFunc func(key string, obj *v3.CatalogTemplate) (runtime.Object, error)
 
+type CatalogTemplateHandlerContextFunc func(ctx context.Context, key string, obj *v3.CatalogTemplate) (runtime.Object, error)
+
 type CatalogTemplateChangeHandlerFunc func(obj *v3.CatalogTemplate) (runtime.Object, error)
 
 type CatalogTemplateLister interface {
@@ -72,6 +75,11 @@ type CatalogTemplateController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler CatalogTemplateHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type CatalogTemplateControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CatalogTemplateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler CatalogTemplateHandlerContextFunc) error
 }
 
 type CatalogTemplateInterface interface {
@@ -95,6 +103,11 @@ type CatalogTemplateInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CatalogTemplateHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle CatalogTemplateLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle CatalogTemplateLifecycle)
+}
+
+type CatalogTemplateInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CatalogTemplateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CatalogTemplateHandlerContextFunc) error
 }
 
 type catalogTemplateLister struct {
@@ -160,6 +173,23 @@ func (c *catalogTemplateController) AddHandler(ctx context.Context, name string,
 	})
 }
 
+func (c *catalogTemplateController) AddHandlerContext(ctx context.Context, name string, handler CatalogTemplateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.CatalogTemplate); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *catalogTemplateController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler CatalogTemplateHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *catalogTemplateController) AddClusterScopedHandler(ctx context.Context,
 			return nil, nil
 		}
 	})
+}
+
+func (c *catalogTemplateController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler CatalogTemplateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.CatalogTemplate); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *catalogTemplateController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler CatalogTemplateHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *catalogTemplateClient) AddHandler(ctx context.Context, name string, syn
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *catalogTemplateClient) AddHandlerContext(ctx context.Context, name string, sync CatalogTemplateHandlerContextFunc) error {
+	return s.Controller().(CatalogTemplateControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *catalogTemplateClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync CatalogTemplateHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *catalogTemplateClient) AddFeatureLifecycle(ctx context.Context, enabled
 
 func (s *catalogTemplateClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync CatalogTemplateHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *catalogTemplateClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CatalogTemplateHandlerContextFunc) error {
+	return s.Controller().(CatalogTemplateControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *catalogTemplateClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CatalogTemplateHandlerFunc) {

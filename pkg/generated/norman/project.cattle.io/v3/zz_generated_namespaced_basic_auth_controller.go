@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewNamespacedBasicAuth(namespace, name string, obj v3.NamespacedBasicAuth) 
 
 type NamespacedBasicAuthHandlerFunc func(key string, obj *v3.NamespacedBasicAuth) (runtime.Object, error)
 
+type NamespacedBasicAuthHandlerContextFunc func(ctx context.Context, key string, obj *v3.NamespacedBasicAuth) (runtime.Object, error)
+
 type NamespacedBasicAuthChangeHandlerFunc func(obj *v3.NamespacedBasicAuth) (runtime.Object, error)
 
 type NamespacedBasicAuthLister interface {
@@ -72,6 +75,11 @@ type NamespacedBasicAuthController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler NamespacedBasicAuthHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type NamespacedBasicAuthControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NamespacedBasicAuthHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler NamespacedBasicAuthHandlerContextFunc) error
 }
 
 type NamespacedBasicAuthInterface interface {
@@ -95,6 +103,11 @@ type NamespacedBasicAuthInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NamespacedBasicAuthHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle NamespacedBasicAuthLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle NamespacedBasicAuthLifecycle)
+}
+
+type NamespacedBasicAuthInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NamespacedBasicAuthHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NamespacedBasicAuthHandlerContextFunc) error
 }
 
 type namespacedBasicAuthLister struct {
@@ -160,6 +173,23 @@ func (c *namespacedBasicAuthController) AddHandler(ctx context.Context, name str
 	})
 }
 
+func (c *namespacedBasicAuthController) AddHandlerContext(ctx context.Context, name string, handler NamespacedBasicAuthHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NamespacedBasicAuth); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *namespacedBasicAuthController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler NamespacedBasicAuthHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *namespacedBasicAuthController) AddClusterScopedHandler(ctx context.Cont
 			return nil, nil
 		}
 	})
+}
+
+func (c *namespacedBasicAuthController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler NamespacedBasicAuthHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NamespacedBasicAuth); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *namespacedBasicAuthController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler NamespacedBasicAuthHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *namespacedBasicAuthClient) AddHandler(ctx context.Context, name string,
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *namespacedBasicAuthClient) AddHandlerContext(ctx context.Context, name string, sync NamespacedBasicAuthHandlerContextFunc) error {
+	return s.Controller().(NamespacedBasicAuthControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *namespacedBasicAuthClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync NamespacedBasicAuthHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *namespacedBasicAuthClient) AddFeatureLifecycle(ctx context.Context, ena
 
 func (s *namespacedBasicAuthClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync NamespacedBasicAuthHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *namespacedBasicAuthClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NamespacedBasicAuthHandlerContextFunc) error {
+	return s.Controller().(NamespacedBasicAuthControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *namespacedBasicAuthClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NamespacedBasicAuthHandlerFunc) {

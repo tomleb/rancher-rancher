@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewNamespacedDockerCredential(namespace, name string, obj v3.NamespacedDock
 
 type NamespacedDockerCredentialHandlerFunc func(key string, obj *v3.NamespacedDockerCredential) (runtime.Object, error)
 
+type NamespacedDockerCredentialHandlerContextFunc func(ctx context.Context, key string, obj *v3.NamespacedDockerCredential) (runtime.Object, error)
+
 type NamespacedDockerCredentialChangeHandlerFunc func(obj *v3.NamespacedDockerCredential) (runtime.Object, error)
 
 type NamespacedDockerCredentialLister interface {
@@ -72,6 +75,11 @@ type NamespacedDockerCredentialController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler NamespacedDockerCredentialHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type NamespacedDockerCredentialControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NamespacedDockerCredentialHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler NamespacedDockerCredentialHandlerContextFunc) error
 }
 
 type NamespacedDockerCredentialInterface interface {
@@ -95,6 +103,11 @@ type NamespacedDockerCredentialInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NamespacedDockerCredentialHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle NamespacedDockerCredentialLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle NamespacedDockerCredentialLifecycle)
+}
+
+type NamespacedDockerCredentialInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NamespacedDockerCredentialHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NamespacedDockerCredentialHandlerContextFunc) error
 }
 
 type namespacedDockerCredentialLister struct {
@@ -160,6 +173,23 @@ func (c *namespacedDockerCredentialController) AddHandler(ctx context.Context, n
 	})
 }
 
+func (c *namespacedDockerCredentialController) AddHandlerContext(ctx context.Context, name string, handler NamespacedDockerCredentialHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NamespacedDockerCredential); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *namespacedDockerCredentialController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler NamespacedDockerCredentialHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *namespacedDockerCredentialController) AddClusterScopedHandler(ctx conte
 			return nil, nil
 		}
 	})
+}
+
+func (c *namespacedDockerCredentialController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler NamespacedDockerCredentialHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NamespacedDockerCredential); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *namespacedDockerCredentialController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler NamespacedDockerCredentialHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *namespacedDockerCredentialClient) AddHandler(ctx context.Context, name 
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *namespacedDockerCredentialClient) AddHandlerContext(ctx context.Context, name string, sync NamespacedDockerCredentialHandlerContextFunc) error {
+	return s.Controller().(NamespacedDockerCredentialControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *namespacedDockerCredentialClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync NamespacedDockerCredentialHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *namespacedDockerCredentialClient) AddFeatureLifecycle(ctx context.Conte
 
 func (s *namespacedDockerCredentialClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync NamespacedDockerCredentialHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *namespacedDockerCredentialClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NamespacedDockerCredentialHandlerContextFunc) error {
+	return s.Controller().(NamespacedDockerCredentialControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *namespacedDockerCredentialClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NamespacedDockerCredentialHandlerFunc) {

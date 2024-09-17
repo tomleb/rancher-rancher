@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewReplicaSet(namespace, name string, obj v1.ReplicaSet) *v1.ReplicaSet {
 
 type ReplicaSetHandlerFunc func(key string, obj *v1.ReplicaSet) (runtime.Object, error)
 
+type ReplicaSetHandlerContextFunc func(ctx context.Context, key string, obj *v1.ReplicaSet) (runtime.Object, error)
+
 type ReplicaSetChangeHandlerFunc func(obj *v1.ReplicaSet) (runtime.Object, error)
 
 type ReplicaSetLister interface {
@@ -72,6 +75,11 @@ type ReplicaSetController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ReplicaSetHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ReplicaSetControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ReplicaSetHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ReplicaSetHandlerContextFunc) error
 }
 
 type ReplicaSetInterface interface {
@@ -95,6 +103,11 @@ type ReplicaSetInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ReplicaSetHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ReplicaSetLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ReplicaSetLifecycle)
+}
+
+type ReplicaSetInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ReplicaSetHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ReplicaSetHandlerContextFunc) error
 }
 
 type replicaSetLister struct {
@@ -160,6 +173,23 @@ func (c *replicaSetController) AddHandler(ctx context.Context, name string, hand
 	})
 }
 
+func (c *replicaSetController) AddHandlerContext(ctx context.Context, name string, handler ReplicaSetHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ReplicaSet); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *replicaSetController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ReplicaSetHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *replicaSetController) AddClusterScopedHandler(ctx context.Context, name
 			return nil, nil
 		}
 	})
+}
+
+func (c *replicaSetController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ReplicaSetHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ReplicaSet); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *replicaSetController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ReplicaSetHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *replicaSetClient) AddHandler(ctx context.Context, name string, sync Rep
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *replicaSetClient) AddHandlerContext(ctx context.Context, name string, sync ReplicaSetHandlerContextFunc) error {
+	return s.Controller().(ReplicaSetControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *replicaSetClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ReplicaSetHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *replicaSetClient) AddFeatureLifecycle(ctx context.Context, enabled func
 
 func (s *replicaSetClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ReplicaSetHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *replicaSetClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ReplicaSetHandlerContextFunc) error {
+	return s.Controller().(ReplicaSetControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *replicaSetClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ReplicaSetHandlerFunc) {

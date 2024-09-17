@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewDaemonSet(namespace, name string, obj v1.DaemonSet) *v1.DaemonSet {
 
 type DaemonSetHandlerFunc func(key string, obj *v1.DaemonSet) (runtime.Object, error)
 
+type DaemonSetHandlerContextFunc func(ctx context.Context, key string, obj *v1.DaemonSet) (runtime.Object, error)
+
 type DaemonSetChangeHandlerFunc func(obj *v1.DaemonSet) (runtime.Object, error)
 
 type DaemonSetLister interface {
@@ -72,6 +75,11 @@ type DaemonSetController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler DaemonSetHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type DaemonSetControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler DaemonSetHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler DaemonSetHandlerContextFunc) error
 }
 
 type DaemonSetInterface interface {
@@ -95,6 +103,11 @@ type DaemonSetInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync DaemonSetHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle DaemonSetLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle DaemonSetLifecycle)
+}
+
+type DaemonSetInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler DaemonSetHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync DaemonSetHandlerContextFunc) error
 }
 
 type daemonSetLister struct {
@@ -160,6 +173,23 @@ func (c *daemonSetController) AddHandler(ctx context.Context, name string, handl
 	})
 }
 
+func (c *daemonSetController) AddHandlerContext(ctx context.Context, name string, handler DaemonSetHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.DaemonSet); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *daemonSetController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler DaemonSetHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *daemonSetController) AddClusterScopedHandler(ctx context.Context, name,
 			return nil, nil
 		}
 	})
+}
+
+func (c *daemonSetController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler DaemonSetHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.DaemonSet); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *daemonSetController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler DaemonSetHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *daemonSetClient) AddHandler(ctx context.Context, name string, sync Daem
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *daemonSetClient) AddHandlerContext(ctx context.Context, name string, sync DaemonSetHandlerContextFunc) error {
+	return s.Controller().(DaemonSetControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *daemonSetClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync DaemonSetHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *daemonSetClient) AddFeatureLifecycle(ctx context.Context, enabled func(
 
 func (s *daemonSetClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync DaemonSetHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *daemonSetClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync DaemonSetHandlerContextFunc) error {
+	return s.Controller().(DaemonSetControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *daemonSetClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync DaemonSetHandlerFunc) {

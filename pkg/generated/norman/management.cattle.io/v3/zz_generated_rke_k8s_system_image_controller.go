@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewRkeK8sSystemImage(namespace, name string, obj v3.RkeK8sSystemImage) *v3.
 
 type RkeK8sSystemImageHandlerFunc func(key string, obj *v3.RkeK8sSystemImage) (runtime.Object, error)
 
+type RkeK8sSystemImageHandlerContextFunc func(ctx context.Context, key string, obj *v3.RkeK8sSystemImage) (runtime.Object, error)
+
 type RkeK8sSystemImageChangeHandlerFunc func(obj *v3.RkeK8sSystemImage) (runtime.Object, error)
 
 type RkeK8sSystemImageLister interface {
@@ -72,6 +75,11 @@ type RkeK8sSystemImageController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler RkeK8sSystemImageHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type RkeK8sSystemImageControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeK8sSystemImageHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler RkeK8sSystemImageHandlerContextFunc) error
 }
 
 type RkeK8sSystemImageInterface interface {
@@ -95,6 +103,11 @@ type RkeK8sSystemImageInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeK8sSystemImageHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle RkeK8sSystemImageLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle RkeK8sSystemImageLifecycle)
+}
+
+type RkeK8sSystemImageInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler RkeK8sSystemImageHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeK8sSystemImageHandlerContextFunc) error
 }
 
 type rkeK8sSystemImageLister struct {
@@ -160,6 +173,23 @@ func (c *rkeK8sSystemImageController) AddHandler(ctx context.Context, name strin
 	})
 }
 
+func (c *rkeK8sSystemImageController) AddHandlerContext(ctx context.Context, name string, handler RkeK8sSystemImageHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeK8sSystemImage); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *rkeK8sSystemImageController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler RkeK8sSystemImageHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *rkeK8sSystemImageController) AddClusterScopedHandler(ctx context.Contex
 			return nil, nil
 		}
 	})
+}
+
+func (c *rkeK8sSystemImageController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler RkeK8sSystemImageHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.RkeK8sSystemImage); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *rkeK8sSystemImageController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler RkeK8sSystemImageHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *rkeK8sSystemImageClient) AddHandler(ctx context.Context, name string, s
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *rkeK8sSystemImageClient) AddHandlerContext(ctx context.Context, name string, sync RkeK8sSystemImageHandlerContextFunc) error {
+	return s.Controller().(RkeK8sSystemImageControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *rkeK8sSystemImageClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync RkeK8sSystemImageHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *rkeK8sSystemImageClient) AddFeatureLifecycle(ctx context.Context, enabl
 
 func (s *rkeK8sSystemImageClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync RkeK8sSystemImageHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *rkeK8sSystemImageClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync RkeK8sSystemImageHandlerContextFunc) error {
+	return s.Controller().(RkeK8sSystemImageControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *rkeK8sSystemImageClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync RkeK8sSystemImageHandlerFunc) {

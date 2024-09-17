@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewGlobalDns(namespace, name string, obj v3.GlobalDns) *v3.GlobalDns {
 
 type GlobalDnsHandlerFunc func(key string, obj *v3.GlobalDns) (runtime.Object, error)
 
+type GlobalDnsHandlerContextFunc func(ctx context.Context, key string, obj *v3.GlobalDns) (runtime.Object, error)
+
 type GlobalDnsChangeHandlerFunc func(obj *v3.GlobalDns) (runtime.Object, error)
 
 type GlobalDnsLister interface {
@@ -72,6 +75,11 @@ type GlobalDnsController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler GlobalDnsHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type GlobalDnsControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler GlobalDnsHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler GlobalDnsHandlerContextFunc) error
 }
 
 type GlobalDnsInterface interface {
@@ -95,6 +103,11 @@ type GlobalDnsInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync GlobalDnsHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle GlobalDnsLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle GlobalDnsLifecycle)
+}
+
+type GlobalDnsInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler GlobalDnsHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync GlobalDnsHandlerContextFunc) error
 }
 
 type globalDnsLister struct {
@@ -160,6 +173,23 @@ func (c *globalDnsController) AddHandler(ctx context.Context, name string, handl
 	})
 }
 
+func (c *globalDnsController) AddHandlerContext(ctx context.Context, name string, handler GlobalDnsHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.GlobalDns); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *globalDnsController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler GlobalDnsHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *globalDnsController) AddClusterScopedHandler(ctx context.Context, name,
 			return nil, nil
 		}
 	})
+}
+
+func (c *globalDnsController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler GlobalDnsHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.GlobalDns); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *globalDnsController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler GlobalDnsHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *globalDnsClient) AddHandler(ctx context.Context, name string, sync Glob
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *globalDnsClient) AddHandlerContext(ctx context.Context, name string, sync GlobalDnsHandlerContextFunc) error {
+	return s.Controller().(GlobalDnsControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *globalDnsClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync GlobalDnsHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *globalDnsClient) AddFeatureLifecycle(ctx context.Context, enabled func(
 
 func (s *globalDnsClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync GlobalDnsHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *globalDnsClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync GlobalDnsHandlerContextFunc) error {
+	return s.Controller().(GlobalDnsControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *globalDnsClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync GlobalDnsHandlerFunc) {

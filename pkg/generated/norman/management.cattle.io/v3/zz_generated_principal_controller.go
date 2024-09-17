@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewPrincipal(namespace, name string, obj v3.Principal) *v3.Principal {
 
 type PrincipalHandlerFunc func(key string, obj *v3.Principal) (runtime.Object, error)
 
+type PrincipalHandlerContextFunc func(ctx context.Context, key string, obj *v3.Principal) (runtime.Object, error)
+
 type PrincipalChangeHandlerFunc func(obj *v3.Principal) (runtime.Object, error)
 
 type PrincipalLister interface {
@@ -71,6 +74,11 @@ type PrincipalController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler PrincipalHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type PrincipalControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PrincipalHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler PrincipalHandlerContextFunc) error
 }
 
 type PrincipalInterface interface {
@@ -94,6 +102,11 @@ type PrincipalInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PrincipalHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle PrincipalLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle PrincipalLifecycle)
+}
+
+type PrincipalInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PrincipalHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PrincipalHandlerContextFunc) error
 }
 
 type principalLister struct {
@@ -159,6 +172,23 @@ func (c *principalController) AddHandler(ctx context.Context, name string, handl
 	})
 }
 
+func (c *principalController) AddHandlerContext(ctx context.Context, name string, handler PrincipalHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Principal); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *principalController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler PrincipalHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *principalController) AddClusterScopedHandler(ctx context.Context, name,
 			return nil, nil
 		}
 	})
+}
+
+func (c *principalController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler PrincipalHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.Principal); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *principalController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler PrincipalHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *principalClient) AddHandler(ctx context.Context, name string, sync Prin
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *principalClient) AddHandlerContext(ctx context.Context, name string, sync PrincipalHandlerContextFunc) error {
+	return s.Controller().(PrincipalControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *principalClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync PrincipalHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *principalClient) AddFeatureLifecycle(ctx context.Context, enabled func(
 
 func (s *principalClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync PrincipalHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *principalClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PrincipalHandlerContextFunc) error {
+	return s.Controller().(PrincipalControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *principalClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PrincipalHandlerFunc) {

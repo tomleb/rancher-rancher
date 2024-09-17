@@ -4,6 +4,8 @@ go 1.22.0
 
 toolchain go1.22.3
 
+replace github.com/rancher/norman => github.com/tomleb/rancher-norman v0.0.0-20240917175011-1e2d42617a65
+
 replace github.com/rancher/wrangler/v3 => github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe
 
 replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b

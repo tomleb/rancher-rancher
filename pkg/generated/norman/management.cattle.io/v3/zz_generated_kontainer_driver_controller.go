@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewKontainerDriver(namespace, name string, obj v3.KontainerDriver) *v3.Kont
 
 type KontainerDriverHandlerFunc func(key string, obj *v3.KontainerDriver) (runtime.Object, error)
 
+type KontainerDriverHandlerContextFunc func(ctx context.Context, key string, obj *v3.KontainerDriver) (runtime.Object, error)
+
 type KontainerDriverChangeHandlerFunc func(obj *v3.KontainerDriver) (runtime.Object, error)
 
 type KontainerDriverLister interface {
@@ -71,6 +74,11 @@ type KontainerDriverController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler KontainerDriverHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type KontainerDriverControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler KontainerDriverHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler KontainerDriverHandlerContextFunc) error
 }
 
 type KontainerDriverInterface interface {
@@ -94,6 +102,11 @@ type KontainerDriverInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync KontainerDriverHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle KontainerDriverLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle KontainerDriverLifecycle)
+}
+
+type KontainerDriverInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler KontainerDriverHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync KontainerDriverHandlerContextFunc) error
 }
 
 type kontainerDriverLister struct {
@@ -159,6 +172,23 @@ func (c *kontainerDriverController) AddHandler(ctx context.Context, name string,
 	})
 }
 
+func (c *kontainerDriverController) AddHandlerContext(ctx context.Context, name string, handler KontainerDriverHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.KontainerDriver); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *kontainerDriverController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler KontainerDriverHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *kontainerDriverController) AddClusterScopedHandler(ctx context.Context,
 			return nil, nil
 		}
 	})
+}
+
+func (c *kontainerDriverController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler KontainerDriverHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.KontainerDriver); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *kontainerDriverController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler KontainerDriverHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *kontainerDriverClient) AddHandler(ctx context.Context, name string, syn
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *kontainerDriverClient) AddHandlerContext(ctx context.Context, name string, sync KontainerDriverHandlerContextFunc) error {
+	return s.Controller().(KontainerDriverControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *kontainerDriverClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync KontainerDriverHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *kontainerDriverClient) AddFeatureLifecycle(ctx context.Context, enabled
 
 func (s *kontainerDriverClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync KontainerDriverHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *kontainerDriverClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync KontainerDriverHandlerContextFunc) error {
+	return s.Controller().(KontainerDriverControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *kontainerDriverClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync KontainerDriverHandlerFunc) {

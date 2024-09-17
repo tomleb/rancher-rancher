@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewResourceQuota(namespace, name string, obj v1.ResourceQuota) *v1.Resource
 
 type ResourceQuotaHandlerFunc func(key string, obj *v1.ResourceQuota) (runtime.Object, error)
 
+type ResourceQuotaHandlerContextFunc func(ctx context.Context, key string, obj *v1.ResourceQuota) (runtime.Object, error)
+
 type ResourceQuotaChangeHandlerFunc func(obj *v1.ResourceQuota) (runtime.Object, error)
 
 type ResourceQuotaLister interface {
@@ -72,6 +75,11 @@ type ResourceQuotaController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler ResourceQuotaHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type ResourceQuotaControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ResourceQuotaHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler ResourceQuotaHandlerContextFunc) error
 }
 
 type ResourceQuotaInterface interface {
@@ -95,6 +103,11 @@ type ResourceQuotaInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ResourceQuotaHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle ResourceQuotaLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle ResourceQuotaLifecycle)
+}
+
+type ResourceQuotaInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler ResourceQuotaHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ResourceQuotaHandlerContextFunc) error
 }
 
 type resourceQuotaLister struct {
@@ -160,6 +173,23 @@ func (c *resourceQuotaController) AddHandler(ctx context.Context, name string, h
 	})
 }
 
+func (c *resourceQuotaController) AddHandlerContext(ctx context.Context, name string, handler ResourceQuotaHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ResourceQuota); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *resourceQuotaController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler ResourceQuotaHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *resourceQuotaController) AddClusterScopedHandler(ctx context.Context, n
 			return nil, nil
 		}
 	})
+}
+
+func (c *resourceQuotaController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler ResourceQuotaHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v1.ResourceQuota); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *resourceQuotaController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler ResourceQuotaHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *resourceQuotaClient) AddHandler(ctx context.Context, name string, sync 
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *resourceQuotaClient) AddHandlerContext(ctx context.Context, name string, sync ResourceQuotaHandlerContextFunc) error {
+	return s.Controller().(ResourceQuotaControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *resourceQuotaClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync ResourceQuotaHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *resourceQuotaClient) AddFeatureLifecycle(ctx context.Context, enabled f
 
 func (s *resourceQuotaClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync ResourceQuotaHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *resourceQuotaClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync ResourceQuotaHandlerContextFunc) error {
+	return s.Controller().(ResourceQuotaControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *resourceQuotaClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync ResourceQuotaHandlerFunc) {

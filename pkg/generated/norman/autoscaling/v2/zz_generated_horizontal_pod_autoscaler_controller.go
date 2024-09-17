@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewHorizontalPodAutoscaler(namespace, name string, obj v2.HorizontalPodAuto
 
 type HorizontalPodAutoscalerHandlerFunc func(key string, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
 
+type HorizontalPodAutoscalerHandlerContextFunc func(ctx context.Context, key string, obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
+
 type HorizontalPodAutoscalerChangeHandlerFunc func(obj *v2.HorizontalPodAutoscaler) (runtime.Object, error)
 
 type HorizontalPodAutoscalerLister interface {
@@ -72,6 +75,11 @@ type HorizontalPodAutoscalerController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler HorizontalPodAutoscalerHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type HorizontalPodAutoscalerControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler HorizontalPodAutoscalerHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler HorizontalPodAutoscalerHandlerContextFunc) error
 }
 
 type HorizontalPodAutoscalerInterface interface {
@@ -95,6 +103,11 @@ type HorizontalPodAutoscalerInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync HorizontalPodAutoscalerHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle HorizontalPodAutoscalerLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle HorizontalPodAutoscalerLifecycle)
+}
+
+type HorizontalPodAutoscalerInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler HorizontalPodAutoscalerHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync HorizontalPodAutoscalerHandlerContextFunc) error
 }
 
 type horizontalPodAutoscalerLister struct {
@@ -160,6 +173,23 @@ func (c *horizontalPodAutoscalerController) AddHandler(ctx context.Context, name
 	})
 }
 
+func (c *horizontalPodAutoscalerController) AddHandlerContext(ctx context.Context, name string, handler HorizontalPodAutoscalerHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v2.HorizontalPodAutoscaler); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *horizontalPodAutoscalerController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler HorizontalPodAutoscalerHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *horizontalPodAutoscalerController) AddClusterScopedHandler(ctx context.
 			return nil, nil
 		}
 	})
+}
+
+func (c *horizontalPodAutoscalerController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler HorizontalPodAutoscalerHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v2.HorizontalPodAutoscaler); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *horizontalPodAutoscalerController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler HorizontalPodAutoscalerHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *horizontalPodAutoscalerClient) AddHandler(ctx context.Context, name str
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *horizontalPodAutoscalerClient) AddHandlerContext(ctx context.Context, name string, sync HorizontalPodAutoscalerHandlerContextFunc) error {
+	return s.Controller().(HorizontalPodAutoscalerControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *horizontalPodAutoscalerClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync HorizontalPodAutoscalerHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *horizontalPodAutoscalerClient) AddFeatureLifecycle(ctx context.Context,
 
 func (s *horizontalPodAutoscalerClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync HorizontalPodAutoscalerHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *horizontalPodAutoscalerClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync HorizontalPodAutoscalerHandlerContextFunc) error {
+	return s.Controller().(HorizontalPodAutoscalerControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *horizontalPodAutoscalerClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync HorizontalPodAutoscalerHandlerFunc) {

@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewGroupMember(namespace, name string, obj v3.GroupMember) *v3.GroupMember 
 
 type GroupMemberHandlerFunc func(key string, obj *v3.GroupMember) (runtime.Object, error)
 
+type GroupMemberHandlerContextFunc func(ctx context.Context, key string, obj *v3.GroupMember) (runtime.Object, error)
+
 type GroupMemberChangeHandlerFunc func(obj *v3.GroupMember) (runtime.Object, error)
 
 type GroupMemberLister interface {
@@ -71,6 +74,11 @@ type GroupMemberController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler GroupMemberHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type GroupMemberControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler GroupMemberHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler GroupMemberHandlerContextFunc) error
 }
 
 type GroupMemberInterface interface {
@@ -94,6 +102,11 @@ type GroupMemberInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync GroupMemberHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle GroupMemberLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle GroupMemberLifecycle)
+}
+
+type GroupMemberInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler GroupMemberHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync GroupMemberHandlerContextFunc) error
 }
 
 type groupMemberLister struct {
@@ -159,6 +172,23 @@ func (c *groupMemberController) AddHandler(ctx context.Context, name string, han
 	})
 }
 
+func (c *groupMemberController) AddHandlerContext(ctx context.Context, name string, handler GroupMemberHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.GroupMember); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *groupMemberController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler GroupMemberHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *groupMemberController) AddClusterScopedHandler(ctx context.Context, nam
 			return nil, nil
 		}
 	})
+}
+
+func (c *groupMemberController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler GroupMemberHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.GroupMember); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *groupMemberController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler GroupMemberHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *groupMemberClient) AddHandler(ctx context.Context, name string, sync Gr
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *groupMemberClient) AddHandlerContext(ctx context.Context, name string, sync GroupMemberHandlerContextFunc) error {
+	return s.Controller().(GroupMemberControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *groupMemberClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync GroupMemberHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *groupMemberClient) AddFeatureLifecycle(ctx context.Context, enabled fun
 
 func (s *groupMemberClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync GroupMemberHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *groupMemberClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync GroupMemberHandlerContextFunc) error {
+	return s.Controller().(GroupMemberControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *groupMemberClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync GroupMemberHandlerFunc) {

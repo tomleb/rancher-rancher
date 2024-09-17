@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewNodeDriver(namespace, name string, obj v3.NodeDriver) *v3.NodeDriver {
 
 type NodeDriverHandlerFunc func(key string, obj *v3.NodeDriver) (runtime.Object, error)
 
+type NodeDriverHandlerContextFunc func(ctx context.Context, key string, obj *v3.NodeDriver) (runtime.Object, error)
+
 type NodeDriverChangeHandlerFunc func(obj *v3.NodeDriver) (runtime.Object, error)
 
 type NodeDriverLister interface {
@@ -71,6 +74,11 @@ type NodeDriverController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler NodeDriverHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type NodeDriverControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NodeDriverHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler NodeDriverHandlerContextFunc) error
 }
 
 type NodeDriverInterface interface {
@@ -94,6 +102,11 @@ type NodeDriverInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NodeDriverHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle NodeDriverLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle NodeDriverLifecycle)
+}
+
+type NodeDriverInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler NodeDriverHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NodeDriverHandlerContextFunc) error
 }
 
 type nodeDriverLister struct {
@@ -159,6 +172,23 @@ func (c *nodeDriverController) AddHandler(ctx context.Context, name string, hand
 	})
 }
 
+func (c *nodeDriverController) AddHandlerContext(ctx context.Context, name string, handler NodeDriverHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NodeDriver); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *nodeDriverController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler NodeDriverHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *nodeDriverController) AddClusterScopedHandler(ctx context.Context, name
 			return nil, nil
 		}
 	})
+}
+
+func (c *nodeDriverController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler NodeDriverHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.NodeDriver); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *nodeDriverController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler NodeDriverHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *nodeDriverClient) AddHandler(ctx context.Context, name string, sync Nod
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *nodeDriverClient) AddHandlerContext(ctx context.Context, name string, sync NodeDriverHandlerContextFunc) error {
+	return s.Controller().(NodeDriverControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *nodeDriverClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync NodeDriverHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *nodeDriverClient) AddFeatureLifecycle(ctx context.Context, enabled func
 
 func (s *nodeDriverClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync NodeDriverHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *nodeDriverClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync NodeDriverHandlerContextFunc) error {
+	return s.Controller().(NodeDriverControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *nodeDriverClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync NodeDriverHandlerFunc) {

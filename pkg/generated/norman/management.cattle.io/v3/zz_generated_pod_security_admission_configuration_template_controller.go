@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewPodSecurityAdmissionConfigurationTemplate(namespace, name string, obj v3
 
 type PodSecurityAdmissionConfigurationTemplateHandlerFunc func(key string, obj *v3.PodSecurityAdmissionConfigurationTemplate) (runtime.Object, error)
 
+type PodSecurityAdmissionConfigurationTemplateHandlerContextFunc func(ctx context.Context, key string, obj *v3.PodSecurityAdmissionConfigurationTemplate) (runtime.Object, error)
+
 type PodSecurityAdmissionConfigurationTemplateChangeHandlerFunc func(obj *v3.PodSecurityAdmissionConfigurationTemplate) (runtime.Object, error)
 
 type PodSecurityAdmissionConfigurationTemplateLister interface {
@@ -71,6 +74,11 @@ type PodSecurityAdmissionConfigurationTemplateController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler PodSecurityAdmissionConfigurationTemplateHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type PodSecurityAdmissionConfigurationTemplateControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error
 }
 
 type PodSecurityAdmissionConfigurationTemplateInterface interface {
@@ -94,6 +102,11 @@ type PodSecurityAdmissionConfigurationTemplateInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PodSecurityAdmissionConfigurationTemplateHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle PodSecurityAdmissionConfigurationTemplateLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle PodSecurityAdmissionConfigurationTemplateLifecycle)
+}
+
+type PodSecurityAdmissionConfigurationTemplateInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error
 }
 
 type podSecurityAdmissionConfigurationTemplateLister struct {
@@ -159,6 +172,23 @@ func (c *podSecurityAdmissionConfigurationTemplateController) AddHandler(ctx con
 	})
 }
 
+func (c *podSecurityAdmissionConfigurationTemplateController) AddHandlerContext(ctx context.Context, name string, handler PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.PodSecurityAdmissionConfigurationTemplate); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *podSecurityAdmissionConfigurationTemplateController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler PodSecurityAdmissionConfigurationTemplateHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *podSecurityAdmissionConfigurationTemplateController) AddClusterScopedHa
 			return nil, nil
 		}
 	})
+}
+
+func (c *podSecurityAdmissionConfigurationTemplateController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.PodSecurityAdmissionConfigurationTemplate); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *podSecurityAdmissionConfigurationTemplateController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler PodSecurityAdmissionConfigurationTemplateHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *podSecurityAdmissionConfigurationTemplateClient) AddHandler(ctx context
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *podSecurityAdmissionConfigurationTemplateClient) AddHandlerContext(ctx context.Context, name string, sync PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error {
+	return s.Controller().(PodSecurityAdmissionConfigurationTemplateControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *podSecurityAdmissionConfigurationTemplateClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync PodSecurityAdmissionConfigurationTemplateHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *podSecurityAdmissionConfigurationTemplateClient) AddFeatureLifecycle(ct
 
 func (s *podSecurityAdmissionConfigurationTemplateClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync PodSecurityAdmissionConfigurationTemplateHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *podSecurityAdmissionConfigurationTemplateClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync PodSecurityAdmissionConfigurationTemplateHandlerContextFunc) error {
+	return s.Controller().(PodSecurityAdmissionConfigurationTemplateControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *podSecurityAdmissionConfigurationTemplateClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync PodSecurityAdmissionConfigurationTemplateHandlerFunc) {

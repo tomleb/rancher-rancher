@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -55,6 +56,8 @@ func NewCloudCredential(namespace, name string, obj v3.CloudCredential) *v3.Clou
 
 type CloudCredentialHandlerFunc func(key string, obj *v3.CloudCredential) (runtime.Object, error)
 
+type CloudCredentialHandlerContextFunc func(ctx context.Context, key string, obj *v3.CloudCredential) (runtime.Object, error)
+
 type CloudCredentialChangeHandlerFunc func(obj *v3.CloudCredential) (runtime.Object, error)
 
 type CloudCredentialLister interface {
@@ -72,6 +75,11 @@ type CloudCredentialController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler CloudCredentialHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type CloudCredentialControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CloudCredentialHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler CloudCredentialHandlerContextFunc) error
 }
 
 type CloudCredentialInterface interface {
@@ -95,6 +103,11 @@ type CloudCredentialInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CloudCredentialHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle CloudCredentialLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle CloudCredentialLifecycle)
+}
+
+type CloudCredentialInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler CloudCredentialHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CloudCredentialHandlerContextFunc) error
 }
 
 type cloudCredentialLister struct {
@@ -160,6 +173,23 @@ func (c *cloudCredentialController) AddHandler(ctx context.Context, name string,
 	})
 }
 
+func (c *cloudCredentialController) AddHandlerContext(ctx context.Context, name string, handler CloudCredentialHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.CloudCredential); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *cloudCredentialController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler CloudCredentialHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -184,6 +214,23 @@ func (c *cloudCredentialController) AddClusterScopedHandler(ctx context.Context,
 			return nil, nil
 		}
 	})
+}
+
+func (c *cloudCredentialController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler CloudCredentialHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.CloudCredential); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *cloudCredentialController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler CloudCredentialHandlerFunc) {
@@ -293,6 +340,10 @@ func (s *cloudCredentialClient) AddHandler(ctx context.Context, name string, syn
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *cloudCredentialClient) AddHandlerContext(ctx context.Context, name string, sync CloudCredentialHandlerContextFunc) error {
+	return s.Controller().(CloudCredentialControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *cloudCredentialClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync CloudCredentialHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -309,6 +360,10 @@ func (s *cloudCredentialClient) AddFeatureLifecycle(ctx context.Context, enabled
 
 func (s *cloudCredentialClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync CloudCredentialHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *cloudCredentialClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync CloudCredentialHandlerContextFunc) error {
+	return s.Controller().(CloudCredentialControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *cloudCredentialClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync CloudCredentialHandlerFunc) {

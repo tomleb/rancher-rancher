@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/norman/controller"
@@ -54,6 +55,8 @@ func NewFleetWorkspace(namespace, name string, obj v3.FleetWorkspace) *v3.FleetW
 
 type FleetWorkspaceHandlerFunc func(key string, obj *v3.FleetWorkspace) (runtime.Object, error)
 
+type FleetWorkspaceHandlerContextFunc func(ctx context.Context, key string, obj *v3.FleetWorkspace) (runtime.Object, error)
+
 type FleetWorkspaceChangeHandlerFunc func(obj *v3.FleetWorkspace) (runtime.Object, error)
 
 type FleetWorkspaceLister interface {
@@ -71,6 +74,11 @@ type FleetWorkspaceController interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, handler FleetWorkspaceHandlerFunc)
 	Enqueue(namespace, name string)
 	EnqueueAfter(namespace, name string, after time.Duration)
+}
+
+type FleetWorkspaceControllerContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler FleetWorkspaceHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, handler FleetWorkspaceHandlerContextFunc) error
 }
 
 type FleetWorkspaceInterface interface {
@@ -94,6 +102,11 @@ type FleetWorkspaceInterface interface {
 	AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync FleetWorkspaceHandlerFunc)
 	AddClusterScopedLifecycle(ctx context.Context, name, clusterName string, lifecycle FleetWorkspaceLifecycle)
 	AddClusterScopedFeatureLifecycle(ctx context.Context, enabled func() bool, name, clusterName string, lifecycle FleetWorkspaceLifecycle)
+}
+
+type FleetWorkspaceInterfaceContext interface {
+	AddHandlerContext(ctx context.Context, name string, handler FleetWorkspaceHandlerContextFunc) error
+	AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync FleetWorkspaceHandlerContextFunc) error
 }
 
 type fleetWorkspaceLister struct {
@@ -159,6 +172,23 @@ func (c *fleetWorkspaceController) AddHandler(ctx context.Context, name string, 
 	})
 }
 
+func (c *fleetWorkspaceController) AddHandlerContext(ctx context.Context, name string, handler FleetWorkspaceHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.FleetWorkspace); ok {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
+}
+
 func (c *fleetWorkspaceController) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, handler FleetWorkspaceHandlerFunc) {
 	c.GenericController.AddHandler(ctx, name, func(key string, obj interface{}) (interface{}, error) {
 		if !enabled() {
@@ -183,6 +213,23 @@ func (c *fleetWorkspaceController) AddClusterScopedHandler(ctx context.Context, 
 			return nil, nil
 		}
 	})
+}
+
+func (c *fleetWorkspaceController) AddClusterScopedHandlerContext(ctx context.Context, name, cluster string, handler FleetWorkspaceHandlerContextFunc) error {
+	controllerCtx, ok := c.GenericController.(controller.GenericControllerContext)
+	if !ok {
+		return fmt.Errorf("not controller context")
+	}
+	controllerCtx.AddHandlerContext(ctx, name, func(ctx context.Context, key string, obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return handler(ctx, key, nil)
+		} else if v, ok := obj.(*v3.FleetWorkspace); ok && controller.ObjectInCluster(cluster, obj) {
+			return handler(ctx, key, v)
+		} else {
+			return nil, nil
+		}
+	})
+	return nil
 }
 
 func (c *fleetWorkspaceController) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, cluster string, handler FleetWorkspaceHandlerFunc) {
@@ -292,6 +339,10 @@ func (s *fleetWorkspaceClient) AddHandler(ctx context.Context, name string, sync
 	s.Controller().AddHandler(ctx, name, sync)
 }
 
+func (s *fleetWorkspaceClient) AddHandlerContext(ctx context.Context, name string, sync FleetWorkspaceHandlerContextFunc) error {
+	return s.Controller().(FleetWorkspaceControllerContext).AddHandlerContext(ctx, name, sync)
+}
+
 func (s *fleetWorkspaceClient) AddFeatureHandler(ctx context.Context, enabled func() bool, name string, sync FleetWorkspaceHandlerFunc) {
 	s.Controller().AddFeatureHandler(ctx, enabled, name, sync)
 }
@@ -308,6 +359,10 @@ func (s *fleetWorkspaceClient) AddFeatureLifecycle(ctx context.Context, enabled 
 
 func (s *fleetWorkspaceClient) AddClusterScopedHandler(ctx context.Context, name, clusterName string, sync FleetWorkspaceHandlerFunc) {
 	s.Controller().AddClusterScopedHandler(ctx, name, clusterName, sync)
+}
+
+func (s *fleetWorkspaceClient) AddClusterScopedHandlerContext(ctx context.Context, name, clusterName string, sync FleetWorkspaceHandlerContextFunc) error {
+	return s.Controller().(FleetWorkspaceControllerContext).AddClusterScopedHandlerContext(ctx, name, clusterName, sync)
 }
 
 func (s *fleetWorkspaceClient) AddClusterScopedFeatureHandler(ctx context.Context, enabled func() bool, name, clusterName string, sync FleetWorkspaceHandlerFunc) {
