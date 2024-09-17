@@ -4,9 +4,9 @@ go 1.22.0
 
 toolchain go1.22.3
 
-replace github.com/rancher/steve => github.com/tomleb/rancher-steve v0.0.0-20240911121934-c176b5a5152a
+replace github.com/rancher/steve => github.com/tomleb/rancher-steve v0.0.0-20240917105302-3625f20582bf
 
-replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240906163555-e567f1ea2d53
+replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240916204456-7d2f79a45cda
 
 replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.6.27 // for compatibilty with docker 20.10.x

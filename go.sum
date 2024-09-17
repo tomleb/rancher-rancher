@@ -1601,10 +1601,10 @@ github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/tomleb/rancher-lasso v0.0.0-20240906163555-e567f1ea2d53 h1:2PYvKjEB664bZn/+1ztEIMpvyDtuj6bUvQvpVva54NU=
-github.com/tomleb/rancher-lasso v0.0.0-20240906163555-e567f1ea2d53/go.mod h1:Efx/+BbH3ivmnTPLu5cA3Gc9wT5oyGS0LBcqEuYTx+A=
-github.com/tomleb/rancher-steve v0.0.0-20240911121934-c176b5a5152a h1:74b0t1f7EbHqK1gH1Bj85rTHGz8YKRDX7ZDGnVvf2Qg=
-github.com/tomleb/rancher-steve v0.0.0-20240911121934-c176b5a5152a/go.mod h1:G7SV9bSj41eYnlRXxuGTfLu6C+GvAdOvAv/E0KOV+Uk=
+github.com/tomleb/rancher-lasso v0.0.0-20240916204456-7d2f79a45cda h1:kzbjaj+1ccTE5242HLlGdab7h8TIs0GqbH5jgX6Um94=
+github.com/tomleb/rancher-lasso v0.0.0-20240916204456-7d2f79a45cda/go.mod h1:Efx/+BbH3ivmnTPLu5cA3Gc9wT5oyGS0LBcqEuYTx+A=
+github.com/tomleb/rancher-steve v0.0.0-20240917105302-3625f20582bf h1:Rd59EgQDvYVTBO6EHXgXfuCt+rWmynXreDhqmvU46aU=
+github.com/tomleb/rancher-steve v0.0.0-20240917105302-3625f20582bf/go.mod h1:kE17KqufA9+R1rC+qvSVtHIVCMdgCEBeDa2FC0JIDak=
 github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 h1:nrZ3ySNYwJbSpD6ce9duiP+QkD3JuLCcWkdaehUS/3Y=
 github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80/go.mod h1:iFyPdL66DjUD96XmzVL3ZntbzcflLnznH0fr99w5VqE=
 github.com/urfave/cli v1.22.14 h1:ebbhrRiGK2i4naQJr+1Xj92HXZCrK7MsyTS/ob3HnAk=
