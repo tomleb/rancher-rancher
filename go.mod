@@ -4,11 +4,11 @@ go 1.22.0
 
 toolchain go1.22.3
 
-replace github.com/rancher/norman => github.com/tomleb/rancher-norman v0.0.0-20240917175011-1e2d42617a65
+replace github.com/rancher/norman => github.com/tomleb/rancher-norman v0.0.0-20240918205438-7a226c25e6f9
 
-replace github.com/rancher/wrangler/v3 => github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240912124721-4a7b5718e3fe
+replace github.com/rancher/wrangler/v3 => github.com/tomleb/rancher-wrangler/v3 v3.0.0-20240918205329-32c902b23b31
 
-replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240908200729-2b62cc331c3b
+replace github.com/rancher/lasso => github.com/tomleb/rancher-lasso v0.0.0-20240918205201-e87c2025e630
 
 replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.6.27 // for compatibilty with docker 20.10.x
@@ -160,6 +160,11 @@ require (
 	github.com/urfave/cli v1.22.15
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.30.6
+	go.opentelemetry.io/otel v1.20.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0
+	go.opentelemetry.io/otel/sdk v1.20.0
+	go.opentelemetry.io/otel/trace v1.20.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/crypto v0.26.0
 	golang.org/x/mod v0.20.0
@@ -383,12 +388,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.13 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.0 // indirect
-	go.opentelemetry.io/otel v1.20.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0 // indirect
 	go.opentelemetry.io/otel/metric v1.20.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.20.0 // indirect
-	go.opentelemetry.io/otel/trace v1.20.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect

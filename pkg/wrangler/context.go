@@ -41,6 +41,7 @@ import (
 	rkecontrollers "github.com/rancher/rancher/pkg/generated/controllers/rke.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/peermanager"
 	"github.com/rancher/rancher/pkg/settings"
+	"github.com/rancher/rancher/pkg/tracing"
 	"github.com/rancher/rancher/pkg/tunnelserver"
 	"github.com/rancher/remotedialer"
 	"github.com/rancher/steve/pkg/accesscontrol"
@@ -264,6 +265,7 @@ func enableProtobuf(cfg *rest.Config) *rest.Config {
 
 func NewContext(ctx context.Context, clientConfig clientcmd.ClientConfig, restConfig *rest.Config) (*Context, error) {
 	sharedOpts := controllers.GetOptsFromEnv(controllers.Management)
+	sharedOpts.Tracer = tracing.New(ctx)
 	controllerFactory, err := controller.NewSharedControllerFactoryContextFromConfigWithOptions(enableProtobuf(restConfig), Scheme, sharedOpts)
 	if err != nil {
 		return nil, err

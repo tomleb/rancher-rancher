@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/rancher/pkg/crondaemon"
 	v3 "github.com/rancher/rancher/pkg/generated/norman/management.cattle.io/v3"
 	"github.com/rancher/rancher/pkg/settings"
+	"github.com/rancher/rancher/pkg/tracing"
 	"github.com/rancher/rancher/pkg/types/config"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,10 +34,15 @@ func newAuthSettingController(ctx context.Context, mgmt *config.ManagementContex
 }
 
 // sync is called periodically and on real updates
-func (c *SettingController) sync(_ context.Context, key string, obj *v3.Setting) (runtime.Object, error) {
+func (c *SettingController) sync(ctx context.Context, key string, obj *v3.Setting) (runtime.Object, error) {
 	if obj == nil || obj.DeletionTimestamp != nil {
 		return nil, nil
 	}
+
+	_, span := tracing.StartSpanFromContext(ctx, "handling settings")
+	defer span.End()
+
+	span.AddEvent("HandlingSetting!")
 
 	switch obj.Name {
 	case settings.AuthUserInfoResyncCron.Name:
